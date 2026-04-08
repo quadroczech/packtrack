@@ -152,27 +152,69 @@ def calc_consumption(material, year, month):
     }
 
 
+def _consumption_from_bulk(material, year, month, inv, receipts, prev_inv):
+    """
+    Calculate consumption for one material using pre-fetched bulk data.
+    inv        = {(mid, month): closing}  for `year`
+    receipts   = {(mid, month): total}    for `year`
+    prev_inv   = {(mid, month): closing}  for `year-1`  (used for Jan opening)
+    """
+    mid = material["id"]
+    closing = inv.get((mid, month))
+
+    if month == 1:
+        prev_closing = prev_inv.get((mid, 12))
+    else:
+        prev_closing = inv.get((mid, month - 1))
+
+    opening = prev_closing if prev_closing is not None else (material["initial_stock"] or 0)
+    incoming = receipts.get((mid, month), 0)
+
+    has_inventory = closing is not None
+    consumption = (opening + incoming - closing) if has_inventory else None
+
+    weight_g = float(material["weight_g"] or 0)
+    weight_kg = round(consumption * weight_g / 1000, 4) if consumption and consumption > 0 else 0
+
+    return {
+        "opening": opening,
+        "incoming": incoming,
+        "closing": closing,
+        "consumption": consumption,
+        "weight_kg": weight_kg,
+        "weight_t": round(weight_kg / 1000, 6),
+        "has_inventory": has_inventory,
+    }
+
+
 def get_monthly_summary(year, month):
-    """Full consumption table for all active materials for a given month."""
+    """Full consumption table for all materials for a given month (2 bulk queries)."""
     materials = db.get_materials(active_only=False)
+    inv      = db.get_inventory_for_year(year)
+    receipts = db.get_receipts_totals_for_year(year)
+    prev_inv = db.get_inventory_for_year(year - 1)
     rows = []
     for m in materials:
-        c = calc_consumption(m, year, month)
+        c = _consumption_from_bulk(m, year, month, inv, receipts, prev_inv)
         rows.append({**dict(m), **c})
     return rows
 
 
 def get_history_table(year):
     """
-    Returns { material_id: { 'name': ..., 'months': {1: {...}, 2: {...}, ...} } }
+    Returns { material_id: { 'material': {...}, 'months': {1: {...}, ...} } }
+    Uses 3 bulk queries instead of N×12×3 individual queries.
     """
     materials = db.get_materials(active_only=False)
+    inv      = db.get_inventory_for_year(year)
+    receipts = db.get_receipts_totals_for_year(year)
+    prev_inv = db.get_inventory_for_year(year - 1)
+
     result = {}
     for m in materials:
         months_data = {}
         for month in range(1, 13):
-            c = calc_consumption(m, year, month)
-            months_data[month] = c
+            months_data[month] = _consumption_from_bulk(m, year, month, inv, receipts, prev_inv)
         result[m["id"]] = {"material": dict(m), "months": months_data}
     return result
 
@@ -183,15 +225,20 @@ def get_quarter_consumption(year, quarter):
     """
     Returns total consumption per material for a quarter.
     { material_id: { 'material': {...}, 'total_pcs': int, 'total_kg': float, 'total_t': float } }
+    Uses 3 bulk queries for the whole quarter.
     """
     months = QUARTER_MONTHS[quarter]
     materials = db.get_materials(active_only=False)
+    inv      = db.get_inventory_for_year(year)
+    receipts = db.get_receipts_totals_for_year(year)
+    prev_inv = db.get_inventory_for_year(year - 1)
+
     result = {}
     for m in materials:
         total_pcs = 0
         valid = True
         for month in months:
-            c = calc_consumption(m, year, month)
+            c = _consumption_from_bulk(m, year, month, inv, receipts, prev_inv)
             if c["consumption"] is None:
                 valid = False
                 break
@@ -304,7 +351,7 @@ def build_naturpack_data(year, quarter):
 
 
 def get_dashboard_stats():
-    """Data for the dashboard overview."""
+    """Data for the dashboard overview. Uses bulk queries."""
     today = date.today()
     year, month = today.year, today.month
     prev_month = month - 1 if month > 1 else 12
@@ -313,19 +360,35 @@ def get_dashboard_stats():
     materials = db.get_materials(active_only=True)
     n_active = len(materials)
 
-    # Current month consumption total (kg)
+    # Bulk fetch for current year (covers current + previous month if same year)
+    inv      = db.get_inventory_for_year(year)
+    receipts = db.get_receipts_totals_for_year(year)
+    prev_inv = db.get_inventory_for_year(year - 1)
+
+    # If prev month is in a different year, fetch that year's data
+    if prev_year != year:
+        prev_year_inv      = db.get_inventory_for_year(prev_year)
+        prev_year_receipts = db.get_receipts_totals_for_year(prev_year)
+        prev_year_prev_inv = prev_inv  # year-2 approx, good enough for dashboard
+    else:
+        prev_year_inv      = inv
+        prev_year_receipts = receipts
+        prev_year_prev_inv = prev_inv
+
     cur_kg = sum(
-        calc_consumption(m, year, month).get("weight_kg", 0) or 0
+        _consumption_from_bulk(m, year, month, inv, receipts, prev_inv).get("weight_kg", 0) or 0
         for m in materials
     )
     prev_kg = sum(
-        calc_consumption(m, prev_year, prev_month).get("weight_kg", 0) or 0
+        _consumption_from_bulk(m, prev_year, prev_month,
+                               prev_year_inv, prev_year_receipts, prev_year_prev_inv
+                               ).get("weight_kg", 0) or 0
         for m in materials
     )
 
     # Receipt count this month
-    receipts = db.get_receipts(year=year, month=month)
-    n_receipts = len(receipts)
+    receipts_list = db.get_receipts(year=year, month=month)
+    n_receipts = len(receipts_list)
 
     # Months with missing inventory this year
     inv_months = db.get_months_with_inventory(year)

@@ -212,17 +212,23 @@ def inventory_entry(year, month):
         flash(f"Inventura za {MONTHS_CZ[month]} {year} byla uložena.", "success")
         return redirect(url_for("inventory_list", year=year))
 
-    # Build table with opening, incoming, current closing
+    # Build table with opening, incoming, current closing (bulk queries)
+    inv_year     = db.get_inventory_for_year(year)
+    receipts_year = db.get_receipts_totals_for_year(year)
+    prev_inv     = db.get_inventory_for_year(year - 1)
+    inv_month_full = db.get_inventory_for_month(year, month)  # for notes
+    inv_notes = {row["material_id"]: row for row in inv_month_full}
+
     rows = []
     for m in mats:
-        c = reports.calc_consumption(m, year, month)
-        inv = db.get_inventory_entry(m["id"], year, month)
+        c = reports._consumption_from_bulk(m, year, month, inv_year, receipts_year, prev_inv)
+        inv_row = inv_notes.get(m["id"])
         rows.append({
             **dict(m),
             "opening": c["opening"],
             "incoming": c["incoming"],
-            "closing": inv["closing_stock_pcs"] if inv else "",
-            "notes_val": inv["notes"] if inv else "",
+            "closing": inv_row["closing_stock_pcs"] if inv_row else "",
+            "notes_val": inv_row["notes"] if inv_row else "",
         })
 
     return render_template("inventory_entry.html",

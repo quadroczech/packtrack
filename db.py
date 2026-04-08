@@ -328,6 +328,57 @@ def upsert_inventory(material_id, year, month, closing_stock, notes=""):
         """, (material_id, year, month, closing_stock, notes))
 
 
+def get_inventory_for_year(year):
+    """Bulk fetch: {(material_id, month): closing_stock_pcs} for the whole year."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT material_id, month, closing_stock_pcs
+            FROM pt_inventory WHERE year = %s
+        """, (year,))
+        return {(r[0], r[1]): r[2] for r in cur.fetchall()}
+
+
+def get_receipts_totals_for_year(year):
+    """Bulk fetch: {(material_id, month): total_pcs} for the whole year."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT material_id,
+                   EXTRACT(MONTH FROM receipt_date)::int,
+                   COALESCE(SUM(quantity_pcs), 0)
+            FROM pt_receipts
+            WHERE EXTRACT(YEAR FROM receipt_date) = %s
+            GROUP BY material_id, EXTRACT(MONTH FROM receipt_date)
+        """, (year,))
+        return {(r[0], r[1]): int(r[2]) for r in cur.fetchall()}
+
+
+def get_inventory_bulk(year, month):
+    """Bulk fetch for a single month: {material_id: closing_stock_pcs}."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT material_id, closing_stock_pcs
+            FROM pt_inventory WHERE year = %s AND month = %s
+        """, (year, month))
+        return {r[0]: r[1] for r in cur.fetchall()}
+
+
+def get_receipts_bulk(year, month):
+    """Bulk fetch for a single month: {material_id: total_pcs}."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT material_id, COALESCE(SUM(quantity_pcs), 0)
+            FROM pt_receipts
+            WHERE EXTRACT(YEAR FROM receipt_date) = %s
+              AND EXTRACT(MONTH FROM receipt_date) = %s
+            GROUP BY material_id
+        """, (year, month))
+        return {r[0]: int(r[1]) for r in cur.fetchall()}
+
+
 def get_months_with_inventory(year):
     """Return list of months that have at least one inventory entry for a year."""
     with get_conn() as conn:
