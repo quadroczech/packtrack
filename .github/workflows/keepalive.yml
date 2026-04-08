@@ -1,0 +1,15 @@
+name: Keep Alive
+
+on:
+  schedule:
+    # Ping every 5 minutes to prevent Render free plan cold starts
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping PackTrack
+        run: |
+          curl -sf https://packtrack-vsf7.onrender.com/ping || true
