@@ -107,6 +107,16 @@ def material_toggle(mid):
     return redirect(url_for("materials_list"))
 
 
+@app.route("/materials/<int:mid>/delete", methods=["POST"])
+def material_delete(mid):
+    ok, reason = db.delete_material(mid)
+    if ok:
+        flash("Materiál byl trvale smazán.", "success")
+    else:
+        flash(reason, "danger")
+    return redirect(url_for("materials_list"))
+
+
 def _material_from_form():
     f = request.form
     return {

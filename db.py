@@ -196,6 +196,21 @@ def toggle_material(material_id):
         cur.execute("UPDATE pt_materials SET active = NOT active WHERE id = %s", (material_id,))
 
 
+def delete_material(material_id):
+    """Delete a material only if it has no linked receipts or inventory entries.
+    Returns (True, '') on success or (False, reason) if blocked."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM pt_receipts WHERE material_id = %s", (material_id,))
+        if cur.fetchone()[0] > 0:
+            return False, "Materiál má evidované příjmy a nelze ho smazat. Deaktivujte ho místo toho."
+        cur.execute("SELECT COUNT(*) FROM pt_inventory WHERE material_id = %s", (material_id,))
+        if cur.fetchone()[0] > 0:
+            return False, "Materiál má záznamy inventury a nelze ho smazat. Deaktivujte ho místo toho."
+        cur.execute("DELETE FROM pt_materials WHERE id = %s", (material_id,))
+        return True, ""
+
+
 # ── Receipts ──────────────────────────────────────────────────────────────────
 
 def get_receipts(material_id=None, year=None, month=None, limit=200):

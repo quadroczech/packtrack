@@ -69,9 +69,15 @@
               <a href="{{ url_for('material_edit', mid=m.id) }}" class="btn btn-sm btn-outline-secondary me-1">
                 <i class="bi bi-pencil"></i>
               </a>
-              <form method="post" action="{{ url_for('material_toggle', mid=m.id) }}" class="d-inline">
+              <form method="post" action="{{ url_for('material_toggle', mid=m.id) }}" class="d-inline me-1">
                 <button class="btn btn-sm btn-outline-warning" title="Deaktivovat">
                   <i class="bi bi-pause-circle"></i>
+                </button>
+              </form>
+              <form method="post" action="{{ url_for('material_delete', mid=m.id) }}" class="d-inline"
+                    onsubmit="return confirm('Opravdu smazat materiál „{{ m.name }}"? Tato akce je nevratná.')">
+                <button class="btn btn-sm btn-outline-danger" title="Smazat">
+                  <i class="bi bi-trash"></i>
                 </button>
               </form>
             </td>
@@ -113,6 +119,12 @@
               <a href="{{ url_for('material_edit', mid=m.id) }}" class="btn btn-sm btn-outline-secondary ms-1">
                 <i class="bi bi-pencil"></i>
               </a>
+              <form method="post" action="{{ url_for('material_delete', mid=m.id) }}" class="d-inline ms-1"
+                    onsubmit="return confirm('Opravdu smazat „{{ m.name }}"?')">
+                <button class="btn btn-sm btn-outline-danger" title="Smazat">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
             </td>
           </tr>
           {% endfor %}
