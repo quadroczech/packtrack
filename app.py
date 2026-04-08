@@ -112,7 +112,7 @@ def _material_from_form():
     return {
         "name":               f.get("name", "").strip(),
         "description":        f.get("description", "").strip(),
-        "weight_g":           float(f.get("weight_g") or 0),
+        "weight_g":           round(float(f.get("weight_kg_input") or 0) * 1000, 4),
         "supplier":           f.get("supplier", "").strip(),
         "ekokom_sheet":       f.get("ekokom_sheet", "J1-1A"),
         "ekokom_material":    f.get("ekokom_material", "") or None,

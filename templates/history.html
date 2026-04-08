@@ -75,7 +75,7 @@
           <td>
             <span class="fw-semibold">{{ mat.name }}</span>
             {% if not mat.active %}<span class="badge bg-secondary ms-1">archiv</span>{% endif %}
-            <br><small class="text-muted">{{ mat.weight_g | float }} g/ks</small>
+            <br><small class="text-muted">{{ (mat.weight_g | float / 1000) | round(6) }} kg/ks</small>
           </td>
           <td class="text-center">{{ c.opening if c.has_inventory or c.opening else "–" }}</td>
           <td class="text-center">
@@ -175,7 +175,7 @@
           <td>
             <span class="fw-semibold">{{ mat.name }}</span>
             {% if not mat.active %}<span class="badge bg-secondary ms-1">archiv</span>{% endif %}
-            <br><small class="text-muted">{{ mat.weight_g | float }} g/ks</small>
+            <br><small class="text-muted">{{ (mat.weight_g | float / 1000) | round(6) }} kg/ks</small>
           </td>
           {% set year_total_kg = namespace(v=0) %}
           {% set year_total_pcs = namespace(v=0) %}

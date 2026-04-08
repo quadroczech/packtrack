@@ -26,13 +26,14 @@
                  placeholder="rozměry, typ, specifikace…">
         </div>
         <div class="col-sm-4">
-          <label class="form-label fw-semibold">Hmotnost 1 ks (g) <span class="text-danger">*</span></label>
+          <label class="form-label fw-semibold">Hmotnost 1 ks (kg) <span class="text-danger">*</span></label>
           <div class="input-group">
-            <input type="number" name="weight_g" class="form-control" step="0.0001" min="0"
-                   value="{{ material.weight_g | float if material else '' }}" required>
-            <span class="input-group-text">g / ks</span>
+            <input type="number" name="weight_kg_input" class="form-control" step="0.000001" min="0"
+                   value="{{ (material.weight_g | float / 1000) if material else '' }}" required
+                   placeholder="0.038">
+            <span class="input-group-text">kg / ks</span>
           </div>
-          <div class="form-text">Váha jednoho kusu v gramech – nutné pro výpočet tun v reportech.</div>
+          <div class="form-text">Váha jednoho kusu v kilogramech – nutné pro výpočet tun v reportech.</div>
         </div>
         <div class="col-sm-4">
           <label class="form-label">Dodavatel</label>

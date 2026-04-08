@@ -50,7 +50,7 @@
             </td>
             <td>
               {% if m.weight_g %}
-                <span class="badge bg-light text-dark border">{{ m.weight_g | float }} g</span>
+                <span class="badge bg-light text-dark border">{{ (m.weight_g | float / 1000) | round(6) }} kg</span>
               {% else %}<span class="text-muted">–</span>{% endif %}
             </td>
             <td class="text-muted">{{ m.supplier or "–" }}</td>
@@ -102,7 +102,7 @@
           {% for m in inactive_mats %}
           <tr class="text-muted">
             <td>{{ m.name }}</td>
-            <td>{{ m.weight_g }} g</td>
+            <td>{{ (m.weight_g | float / 1000) | round(6) }} kg</td>
             <td>{{ m.supplier or "–" }}</td>
             <td>
               <form method="post" action="{{ url_for('material_toggle', mid=m.id) }}" class="d-inline">
