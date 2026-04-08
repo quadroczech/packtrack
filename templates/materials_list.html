@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Materiály{% endblock %}
+{% block page_title %}Správa materiálů{% endblock %}
+{% block breadcrumb %}Konfigurace /{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <p class="text-muted mb-0">
+    Seznam obalových materiálů. Každý materiál má přiřazenou kategorii pro EKO-KOM a NATUR-PACK výkazy.
+  </p>
+  <a href="{{ url_for('material_add') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i>Přidat materiál
+  </a>
+</div>
+
+<!-- Active materials -->
+<div class="card card-flat mb-4">
+  <div class="card-header-flat">
+    <i class="bi bi-check-circle-fill text-success me-2"></i>Aktivní materiály
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Název</th>
+          <th>Hmotnost/ks</th>
+          <th>Dodavatel</th>
+          <th>EKO-KOM kategorie</th>
+          <th>NATUR-PACK kat.</th>
+          <th class="text-end">Akce</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set active_mats = materials | selectattr("active") | list %}
+        {% if active_mats %}
+          {% for m in active_mats %}
+          {% set ekokom_label = "" %}
+          {% for code, label, sheet, row, sec in ekokom_mats %}
+            {% if code == m.ekokom_material %}{% set ekokom_label = label %}{% endif %}
+          {% endfor %}
+          {% set np_label = "" %}
+          {% for code, label in naturpack_mats %}
+            {% if code == m.naturpack_material %}{% set np_label = label %}{% endif %}
+          {% endfor %}
+          <tr>
+            <td>
+              <span class="fw-semibold">{{ m.name }}</span>
+              {% if m.description %}<br><small class="text-muted">{{ m.description }}</small>{% endif %}
+            </td>
+            <td>
+              {% if m.weight_g %}
+                <span class="badge bg-light text-dark border">{{ m.weight_g | float }} g</span>
+              {% else %}<span class="text-muted">–</span>{% endif %}
+            </td>
+            <td class="text-muted">{{ m.supplier or "–" }}</td>
+            <td>
+              {% if ekokom_label %}
+                <small class="text-dark">{{ ekokom_label }}</small>
+                <br><small class="text-muted">{{ m.ekokom_sheet }}</small>
+              {% else %}<span class="text-danger small"><i class="bi bi-exclamation-triangle"></i> Nepřiřazeno</span>{% endif %}
+            </td>
+            <td>
+              {% if np_label %}
+                <small>{{ np_label }}</small>
+              {% else %}<span class="text-danger small"><i class="bi bi-exclamation-triangle"></i> Nepřiřazeno</span>{% endif %}
+            </td>
+            <td class="text-end">
+              <a href="{{ url_for('material_edit', mid=m.id) }}" class="btn btn-sm btn-outline-secondary me-1">
+                <i class="bi bi-pencil"></i>
+              </a>
+              <form method="post" action="{{ url_for('material_toggle', mid=m.id) }}" class="d-inline">
+                <button class="btn btn-sm btn-outline-warning" title="Deaktivovat">
+                  <i class="bi bi-pause-circle"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-4">Žádné aktivní materiály. <a href="{{ url_for('material_add') }}">Přidat první?</a></td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Inactive materials -->
+{% set inactive_mats = materials | rejectattr("active") | list %}
+{% if inactive_mats %}
+<div class="card card-flat">
+  <div class="card-header-flat text-muted">
+    <i class="bi bi-archive me-2"></i>Archivované materiály ({{ inactive_mats | length }})
+    <button class="btn btn-sm btn-link text-muted ms-auto" data-bs-toggle="collapse" data-bs-target="#archiveTable">
+      Zobrazit
+    </button>
+  </div>
+  <div class="collapse" id="archiveTable">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <tbody>
+          {% for m in inactive_mats %}
+          <tr class="text-muted">
+            <td>{{ m.name }}</td>
+            <td>{{ m.weight_g }} g</td>
+            <td>{{ m.supplier or "–" }}</td>
+            <td>
+              <form method="post" action="{{ url_for('material_toggle', mid=m.id) }}" class="d-inline">
+                <button class="btn btn-sm btn-outline-success">
+                  <i class="bi bi-play-circle"></i> Obnovit
+                </button>
+              </form>
+              <a href="{{ url_for('material_edit', mid=m.id) }}" class="btn btn-sm btn-outline-secondary ms-1">
+                <i class="bi bi-pencil"></i>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

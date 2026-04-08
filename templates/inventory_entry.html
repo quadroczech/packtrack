@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Inventura {{ month_name }} {{ year }}{% endblock %}
+{% block page_title %}Inventura – {{ month_name }} {{ year }}{% endblock %}
+{% block breadcrumb %}Inventura /{% endblock %}
+
+{% block content %}
+<div class="alert alert-info d-flex gap-2 align-items-start mb-4">
+  <i class="bi bi-info-circle-fill fs-5 mt-1 flex-shrink-0"></i>
+  <div>
+    <strong>Jak vyplnit inventuru:</strong>
+    Zadejte fyzický stav skladu každého materiálu k poslednímu dni měsíce.
+    Spotřeba se vypočítá automaticky: <code>Spotřeba = Počáteční stav + Příjmy – Konečný stav</code>.
+    Inventuru lze uložit i opakovaně a kdykoli upravit.
+  </div>
+</div>
+
+{% if not rows %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-box-seam fs-1 d-block mb-3"></i>
+  Nemáte žádné aktivní materiály. <a href="{{ url_for('material_add') }}">Přidejte materiály</a> nejprve.
+</div>
+{% else %}
+
+<form method="post">
+  <div class="card card-flat">
+    <div class="card-header-flat d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-clipboard2-check me-2"></i>Stav skladu k {{ month_name }} {{ year }}</span>
+      <span class="text-muted small">Hodnoty v kusech (ks)</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" id="inventoryTable">
+        <thead class="table-light">
+          <tr>
+            <th style="min-width:220px">Materiál</th>
+            <th class="text-end" style="width:110px">Počáteční<br><small class="text-muted">stav (ks)</small></th>
+            <th class="text-end" style="width:110px">Příjmy<br><small class="text-muted">v měsíci (ks)</small></th>
+            <th class="text-center" style="width:130px">Konečný stav<br><small class="text-muted">k {{ month_name }} (ks)</small></th>
+            <th class="text-end" style="width:110px">Spotřeba<br><small class="text-muted">(ks)</small></th>
+            <th class="text-end" style="width:100px">Spotřeba<br><small class="text-muted">(kg)</small></th>
+            <th style="min-width:160px">Poznámka</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>
+              <div class="fw-semibold">{{ row.name }}</div>
+              {% if row.supplier %}<div class="text-muted small">{{ row.supplier }}</div>{% endif %}
+              {% if not row.active %}<span class="badge bg-secondary">archiv</span>{% endif %}
+            </td>
+            <td class="text-end text-muted">{{ "{:,}".format(row.opening) }}</td>
+            <td class="text-end">
+              {% if row.incoming > 0 %}
+                <span class="text-success fw-semibold">+{{ "{:,}".format(row.incoming) }}</span>
+              {% else %}
+                <span class="text-muted">0</span>
+              {% endif %}
+              <a href="{{ url_for('receipt_add', material_id=row.id) }}"
+                 class="btn btn-link btn-sm p-0 ms-1" title="Přidat příjem" tabindex="-1">
+                <i class="bi bi-plus-circle text-primary"></i>
+              </a>
+            </td>
+            <td class="text-center">
+              <input type="number" name="closing_{{ row.id }}"
+                     class="form-control form-control-sm text-center closing-input"
+                     min="0" step="1"
+                     value="{{ row.closing }}"
+                     data-opening="{{ row.opening }}"
+                     data-incoming="{{ row.incoming }}"
+                     data-weight="{{ row.weight_g | float }}"
+                     placeholder="0"
+                     data-rowid="{{ row.id }}">
+            </td>
+            <td class="text-end fw-semibold" id="cons_{{ row.id }}">
+              {% if row.closing != '' %}
+                {{ row.opening + row.incoming - row.closing }}
+              {% else %}<span class="text-muted">–</span>{% endif %}
+            </td>
+            <td class="text-end text-muted" id="cons_kg_{{ row.id }}">
+              {% if row.closing != '' %}
+                {{ ((row.opening + row.incoming - row.closing) * row.weight_g / 1000) | round(3) }}
+              {% else %}–{% endif %}
+            </td>
+            <td>
+              <input type="text" name="notes_{{ row.id }}"
+                     class="form-control form-control-sm"
+                     value="{{ row.notes_val }}" placeholder="poznámka…">
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 mt-4">
+    <button type="submit" class="btn btn-success px-4">
+      <i class="bi bi-floppy me-1"></i>Uložit inventuru
+    </button>
+    <a href="{{ url_for('inventory_list') }}" class="btn btn-outline-secondary">Zpět</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll(".closing-input").forEach(function(input) {
+  input.addEventListener("input", function() {
+    const id      = this.dataset.rowid;
+    const opening = parseInt(this.dataset.opening) || 0;
+    const incoming= parseInt(this.dataset.incoming) || 0;
+    const weight  = parseFloat(this.dataset.weight) || 0;
+    const closing = parseInt(this.value);
+
+    const consEl   = document.getElementById("cons_" + id);
+    const consKgEl = document.getElementById("cons_kg_" + id);
+
+    if (!isNaN(closing)) {
+      const cons = opening + incoming - closing;
+      consEl.innerHTML   = cons.toLocaleString("cs-CZ") + " ks";
+      consEl.className   = "text-end fw-semibold " + (cons < 0 ? "text-danger" : "");
+      const kg = (cons * weight / 1000).toFixed(3);
+      consKgEl.textContent = kg + " kg";
+    } else {
+      consEl.innerHTML   = '<span class="text-muted">–</span>';
+      consKgEl.textContent = "–";
+    }
+  });
+});
+</script>
+{% endblock %}

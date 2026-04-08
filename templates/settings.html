@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Nastavení{% endblock %}
+{% block page_title %}Nastavení aplikace{% endblock %}
+{% block breadcrumb %}Konfigurace /{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-8">
+
+<form method="post">
+  <div class="card card-flat mb-4">
+    <div class="card-header-flat"><i class="bi bi-building me-2"></i>Firemní údaje</div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label fw-semibold">Název firmy</label>
+          <input type="text" name="company_name" class="form-control"
+                 value="{{ settings.get('company_name','') }}">
+        </div>
+        <div class="col-12">
+          <label class="form-label fw-semibold">Adresa</label>
+          <input type="text" name="company_address" class="form-control"
+                 value="{{ settings.get('company_address','') }}">
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label fw-semibold">IČO</label>
+          <input type="text" name="company_ico" class="form-control"
+                 value="{{ settings.get('company_ico','') }}" maxlength="8">
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label fw-semibold">DIČ</label>
+          <input type="text" name="company_dic" class="form-control"
+                 value="{{ settings.get('company_dic','') }}">
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label fw-semibold">EKO-KOM ID</label>
+          <input type="text" name="ekokom_id" class="form-control"
+                 value="{{ settings.get('ekokom_id','') }}"
+                 placeholder="R00230068">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card card-flat mb-4">
+    <div class="card-header-flat"><i class="bi bi-person me-2"></i>Kontaktní osoba</div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-sm-6">
+          <label class="form-label fw-semibold">Jméno</label>
+          <input type="text" name="contact_person" class="form-control"
+                 value="{{ settings.get('contact_person','') }}">
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label fw-semibold">Telefon</label>
+          <input type="text" name="contact_phone" class="form-control"
+                 value="{{ settings.get('contact_phone','') }}">
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label fw-semibold">E-mail kontaktu</label>
+          <input type="email" name="contact_email" class="form-control"
+                 value="{{ settings.get('contact_email','') }}">
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label fw-semibold">Fakturační e-mail</label>
+          <input type="email" name="invoice_email" class="form-control"
+                 value="{{ settings.get('invoice_email','') }}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary px-4">
+      <i class="bi bi-floppy me-1"></i>Uložit nastavení
+    </button>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">Zpět</a>
+  </div>
+</form>
+
+</div>
+</div>
+{% endblock %}

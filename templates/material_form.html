@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block title %}{{ "Přidat materiál" if not material else "Upravit materiál" }}{% endblock %}
+{% block page_title %}{{ "Přidat materiál" if not material else "Upravit: " + material.name }}{% endblock %}
+{% block breadcrumb %}Materiály /{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-9">
+<form method="post" action="{{ action }}">
+
+  <!-- Basic info -->
+  <div class="card card-flat mb-4">
+    <div class="card-header-flat"><i class="bi bi-info-circle me-2"></i>Základní informace</div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label fw-semibold">Název materiálu <span class="text-danger">*</span></label>
+          <input type="text" name="name" class="form-control"
+                 value="{{ material.name if material else '' }}" required
+                 placeholder="např. PE sáček průhledný 300x400mm">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Popis</label>
+          <input type="text" name="description" class="form-control"
+                 value="{{ material.description if material else '' }}"
+                 placeholder="rozměry, typ, specifikace…">
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label fw-semibold">Hmotnost 1 ks (g) <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <input type="number" name="weight_g" class="form-control" step="0.0001" min="0"
+                   value="{{ material.weight_g | float if material else '' }}" required>
+            <span class="input-group-text">g / ks</span>
+          </div>
+          <div class="form-text">Váha jednoho kusu v gramech – nutné pro výpočet tun v reportech.</div>
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label">Dodavatel</label>
+          <input type="text" name="supplier" class="form-control"
+                 value="{{ material.supplier if material else '' }}"
+                 placeholder="název dodavatele">
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label">Počáteční stav skladu (ks)</label>
+          <input type="number" name="initial_stock" class="form-control" min="0"
+                 value="{{ material.initial_stock if material else 0 }}">
+          <div class="form-text">Stav k datu prvního zavedení do systému.</div>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Poznámky</label>
+          <textarea name="notes" class="form-control" rows="2">{{ material.notes if material else '' }}</textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EKO-KOM mapping -->
+  <div class="card card-flat mb-4">
+    <div class="card-header-flat">
+      <img src="https://flagcdn.com/20x15/cz.png" class="me-2">
+      EKO-KOM mapování (Česká republika)
+    </div>
+    <div class="card-body">
+      <p class="text-muted small mb-3">
+        Určuje, do které kategorie EKO-KOM výkazu se tento materiál zahrne.
+        Výkaz se podává kvartálně za Českou republiku.
+      </p>
+      <div class="row g-3">
+        <div class="col-sm-6">
+          <label class="form-label fw-semibold">Typ výkazu (list)</label>
+          <select name="ekokom_sheet" class="form-select" id="ekokomSheet">
+            {% for code, label in ekokom_sheets %}
+              <option value="{{ code }}"
+                {% if material and material.ekokom_sheet == code %}selected{% endif %}>
+                {{ label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label fw-semibold">Materiálová kategorie EKO-KOM</label>
+          <select name="ekokom_material" class="form-select">
+            <option value="">– Nepřiřazovat –</option>
+            <optgroup label="PLASTY">
+              {% for code, label, sheet, row, sec in ekokom_mats if sec == 'plastic_metal' and code not in ['Al','Fe','Napojovy_karton'] %}
+                <option value="{{ code }}"
+                  {% if material and material.ekokom_material == code %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endfor %}
+            </optgroup>
+            <optgroup label="KOVY &amp; NÁPOJOVÝ KARTON">
+              {% for code, label, sheet, row, sec in ekokom_mats if code in ['Al','Fe','Napojovy_karton'] %}
+                <option value="{{ code }}"
+                  {% if material and material.ekokom_material == code %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endfor %}
+            </optgroup>
+            <optgroup label="SKLO">
+              {% for code, label, sheet, row, sec in ekokom_mats if 'Sklo' in code %}
+                <option value="{{ code }}"
+                  {% if material and material.ekokom_material == code %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endfor %}
+            </optgroup>
+            <optgroup label="PAPÍR A LEPENKA">
+              {% for code, label, sheet, row, sec in ekokom_mats if sec == 'other' and 'Sklo' not in code and 'Drevo' not in code and 'Textil' not in code and 'Jine' not in code %}
+                <option value="{{ code }}"
+                  {% if material and material.ekokom_material == code %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endfor %}
+            </optgroup>
+            <optgroup label="DŘEVO / TEXTIL / JINÉ">
+              {% for code, label, sheet, row, sec in ekokom_mats if code in ['Drevo','Textil','Jine_ostatni'] %}
+                <option value="{{ code }}"
+                  {% if material and material.ekokom_material == code %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endfor %}
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="col-sm-6" id="ekokomFormGroup">
+          <label class="form-label fw-semibold">Forma obalu <span class="text-muted">(jen pro plasty/kovy)</span></label>
+          <select name="ekokom_form" class="form-select">
+            {% for code, label in ekokom_forms %}
+              <option value="{{ code }}"
+                {% if material and material.ekokom_form == code %}selected{% endif %}>
+                {{ label }}
+              </option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Sáčky, fólie → Měkké/flexibilní. Lahve, kelímky → Pevné/duté.</div>
+        </div>
+
+        <div class="col-sm-6">
+          <label class="form-label fw-semibold">Původ materiálu</label>
+          <select name="ekokom_origin" class="form-select">
+            {% for code, label in ekokom_origins %}
+              <option value="{{ code }}"
+                {% if material and material.ekokom_origin == code %}selected{% endif %}>
+                {{ label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NATUR-PACK mapping -->
+  <div class="card card-flat mb-4">
+    <div class="card-header-flat">
+      <img src="https://flagcdn.com/20x15/sk.png" class="me-2">
+      NATUR-PACK mapování (Slovensko)
+    </div>
+    <div class="card-body">
+      <p class="text-muted small mb-3">
+        Určuje, do které kategorie NATUR-PACK výkazu se tento materiál zahrne.
+        Výkaz se podává kvartálně za Slovensko.
+      </p>
+      <div class="row g-3">
+        <div class="col-sm-6">
+          <label class="form-label fw-semibold">Materiálová kategorie NATUR-PACK</label>
+          <select name="naturpack_material" class="form-select">
+            <option value="">– Nepřiřazovat –</option>
+            <optgroup label="PLASTY">
+              {% for code, label in naturpack_mats if code in ['HDPE','LDPE','PP','PS','PET','EPS','PVC','ine_plasty','biodeg'] %}
+                <option value="{{ code }}"
+                  {% if material and material.naturpack_material == code %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endfor %}
+            </optgroup>
+            <optgroup label="PAPIER A OSTATNÉ">
+              {% for code, label in naturpack_mats if code not in ['HDPE','LDPE','PP','PS','PET','EPS','PVC','ine_plasty','biodeg'] %}
+                <option value="{{ code }}"
+                  {% if material and material.naturpack_material == code %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endfor %}
+            </optgroup>
+          </select>
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label fw-semibold">Typ obalu (příloha)</label>
+          <select name="naturpack_appendix" class="form-select">
+            {% for code, label in naturpack_apps %}
+              <option value="{{ code }}"
+                {% if material and material.naturpack_appendix == code %}selected{% endif %}>
+                {{ label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary px-4">
+      <i class="bi bi-check-lg me-1"></i>Uložit materiál
+    </button>
+    <a href="{{ url_for('materials_list') }}" class="btn btn-outline-secondary">Zpět</a>
+  </div>
+
+</form>
+</div>
+</div>
+{% endblock %}

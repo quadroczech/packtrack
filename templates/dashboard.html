@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+  <!-- Stat cards -->
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon bg-primary-soft text-primary"><i class="bi bi-box-seam"></i></div>
+      <div>
+        <div class="stat-value">{{ stats.n_active }}</div>
+        <div class="stat-label">Aktivních materiálů</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon bg-success-soft text-success"><i class="bi bi-graph-down-arrow"></i></div>
+      <div>
+        <div class="stat-value">{{ stats.cur_kg | round(1) }} kg</div>
+        <div class="stat-label">Spotřeba {{ stats.month_name }} {{ stats.cur_year }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon bg-warning-soft text-warning"><i class="bi bi-box-arrow-in-down"></i></div>
+      <div>
+        <div class="stat-value">{{ stats.n_receipts_this_month }}</div>
+        <div class="stat-label">Příjmů tento měsíc</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card {% if stats.missing_inventory_months %}border-danger{% endif %}">
+      <div class="stat-icon {% if stats.missing_inventory_months %}bg-danger-soft text-danger{% else %}bg-success-soft text-success{% endif %}">
+        <i class="bi bi-clipboard2-{% if stats.missing_inventory_months %}x{% else %}check{% endif %}"></i>
+      </div>
+      <div>
+        {% if stats.missing_inventory_months %}
+          <div class="stat-value text-danger">{{ stats.missing_inventory_months | length }}</div>
+          <div class="stat-label">Chybí inventura</div>
+        {% else %}
+          <div class="stat-value text-success">OK</div>
+          <div class="stat-label">Inventura aktuální</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Alerts -->
+{% if stats.missing_inventory_months %}
+<div class="alert alert-warning d-flex align-items-center gap-2">
+  <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+  <div>
+    <strong>Chybí inventura</strong> za:
+    {% for m in stats.missing_inventory_months %}
+      <a href="{{ url_for('inventory_entry', year=stats.cur_year, month=m) }}"
+         class="badge bg-warning text-dark text-decoration-none ms-1">
+        {{ months_cz[m] }} {{ stats.cur_year }}
+      </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Quick actions -->
+<div class="row g-3 mb-4">
+  <div class="col-12">
+    <h5 class="mb-3 text-muted fw-semibold"><i class="bi bi-lightning-fill me-1 text-warning"></i>Rychlé akce</h5>
+  </div>
+  <div class="col-sm-6 col-md-4 col-lg-3">
+    <a href="{{ url_for('receipt_add') }}" class="quick-action-card text-decoration-none">
+      <i class="bi bi-box-arrow-in-down fs-2 text-primary mb-2"></i>
+      <div class="fw-semibold">Zadat příjem</div>
+      <small class="text-muted">Nová dodávka obalovky</small>
+    </a>
+  </div>
+  <div class="col-sm-6 col-md-4 col-lg-3">
+    <a href="{{ url_for('inventory_entry', year=stats.cur_year, month=stats.cur_month) }}"
+       class="quick-action-card text-decoration-none">
+      <i class="bi bi-clipboard2-check fs-2 text-success mb-2"></i>
+      <div class="fw-semibold">Inventura {{ stats.month_name }}</div>
+      <small class="text-muted">Stav skladu k měsíci</small>
+    </a>
+  </div>
+  <div class="col-sm-6 col-md-4 col-lg-3">
+    <a href="{{ url_for('history', year=stats.cur_year) }}"
+       class="quick-action-card text-decoration-none">
+      <i class="bi bi-table fs-2 text-info mb-2"></i>
+      <div class="fw-semibold">Spotřeba {{ stats.cur_year }}</div>
+      <small class="text-muted">Přehled po měsících</small>
+    </a>
+  </div>
+  <div class="col-sm-6 col-md-4 col-lg-3">
+    <a href="{{ url_for('reports_index') }}" class="quick-action-card text-decoration-none">
+      <i class="bi bi-file-earmark-bar-graph fs-2 text-danger mb-2"></i>
+      <div class="fw-semibold">Reporty</div>
+      <small class="text-muted">EKO-KOM, NATUR-PACK</small>
+    </a>
+  </div>
+</div>
+
+<!-- Current quarter report links -->
+<div class="card card-flat">
+  <div class="card-header-flat">
+    <i class="bi bi-file-earmark-bar-graph me-2"></i>
+    Výkazy – aktuální kvartál (Q{{ current_quarter }} / {{ current_year }})
+  </div>
+  <div class="card-body d-flex gap-3 flex-wrap">
+    <a href="{{ url_for('report_ekokom', year=current_year, quarter=current_quarter) }}"
+       class="btn btn-outline-primary">
+      <img src="https://flagcdn.com/20x15/cz.png" class="me-1"> EKO-KOM (CZ)
+    </a>
+    <a href="{{ url_for('report_naturpack', year=current_year, quarter=current_quarter) }}"
+       class="btn btn-outline-primary">
+      <img src="https://flagcdn.com/20x15/sk.png" class="me-1"> NATUR-PACK (SK)
+    </a>
+    <a href="{{ url_for('distribution', year=current_year, quarter=current_quarter) }}"
+       class="btn btn-outline-secondary">
+      <i class="bi bi-pie-chart me-1"></i>Rozdělení tržeb Q{{ current_quarter }}
+    </a>
+  </div>
+</div>
+{% endblock %}

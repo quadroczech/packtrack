@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}NATUR-PACK Q{{ quarter }}/{{ year }}{% endblock %}
+{% block page_title %}NATUR-PACK – Q{{ quarter }} / {{ year }}{% endblock %}
+{% block breadcrumb %}Reporty /{% endblock %}
+
+{% block content %}
+<!-- Header bar -->
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+  <div>
+    <div class="d-flex align-items-center gap-3 mb-2">
+      <img src="https://flagcdn.com/32x24/sk.png" alt="SK">
+      <h5 class="mb-0">NATUR-PACK – Slovensko</h5>
+    </div>
+    <p class="text-muted mb-0">
+      Kvartál Q{{ quarter }}/{{ year }}
+      ({{ months_cz[months[0]] }} – {{ months_cz[months[2]] }})
+      &nbsp;|&nbsp;
+      Podíl SK tržeb: <strong class="{% if sk_pct == 0 %}text-danger{% endif %}">{{ sk_pct }} %</strong>
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('distribution', year=year, quarter=quarter) }}"
+       class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-pie-chart me-1"></i>Upravit % tržeb
+    </a>
+    <a href="{{ url_for('report_naturpack_export', year=year, quarter=quarter) }}"
+       class="btn btn-warning">
+      <i class="bi bi-download me-1"></i>Stáhnout přehled (Excel)
+    </a>
+  </div>
+</div>
+
+{% if sk_pct == 0 %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle me-2"></i>
+  Podíl tržeb pro SK je 0 %. Nastavte prosím
+  <a href="{{ url_for('distribution', year=year, quarter=quarter) }}">rozdělení tržeb</a>
+  pro Q{{ quarter }}/{{ year }}.
+</div>
+{% endif %}
+
+<div class="alert alert-info d-flex gap-2 align-items-start mb-4">
+  <i class="bi bi-info-circle-fill fs-5 flex-shrink-0 mt-1"></i>
+  <div>
+    <strong>Jak použít tento přehled:</strong>
+    Přihlaste se na <a href="https://portal.natur-pack.sk" target="_blank">portal.natur-pack.sk</a>
+    a do formuláře zadejte hodnoty z tabulky níže.
+    Sloupec <strong>Dovoz (Cp)</strong> – dovozíte obalový materiál z ČR na SK.
+  </div>
+</div>
+
+<!-- Spotrebitelske obaly (Appendix 2) -->
+{% for appendix, app_title, app_sk in [
+    ('consumer', 'Spotrebiteľské obaly', 'Príloha č. 2'),
+    ('group',    'Skupinové a prepravné obaly', 'Príloha č. 3')
+] %}
+<div class="card card-flat mb-4">
+  <div class="card-header-flat d-flex justify-content-between">
+    <span>
+      <i class="bi bi-table me-2"></i>{{ app_title }}
+      <span class="badge bg-light text-dark border ms-2">{{ app_sk }}</span>
+    </span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th>Komodita</th>
+          <th>Obalový materiál (SK)</th>
+          <th class="text-end">Spotreba celkem (kg)</th>
+          <th class="text-end">SK {{ sk_pct }}%</th>
+          <th class="text-end fw-bold text-warning">Dovoz – Cp (t)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set ns_total = namespace(t=0) %}
+        {% for group_name in group_order %}
+          {% set group_rows = [] %}
+          {% for (app, mat_code), wt in np_data.items() %}
+            {% if app == appendix and np_groups.get(mat_code, 'OSTATNÉ') == group_name %}
+              {% set _ = group_rows.append((mat_code, wt)) %}
+            {% endif %}
+          {% endfor %}
+          {% if group_rows %}
+          <tr class="table-secondary">
+            <td colspan="5" class="fw-semibold py-1 small">{{ group_name }}</td>
+          </tr>
+          {% for mat_code, wt in group_rows %}
+          {% set _ = ns_total.__setattr__('t', ns_total.t + wt) %}
+          {% set total_kg_all = namespace(v=0) %}
+          {% for mid, entry in consumption.items() %}
+            {% if entry.material.naturpack_material == mat_code and entry.material.naturpack_appendix == appendix %}
+              {% set _ = total_kg_all.__setattr__('v', total_kg_all.v + entry.total_kg) %}
+            {% endif %}
+          {% endfor %}
+          <tr>
+            <td></td>
+            <td class="fw-semibold">{{ mat_label.get(mat_code, mat_code) }}</td>
+            <td class="text-end text-muted">{{ total_kg_all.v | round(3) }} kg</td>
+            <td class="text-end text-muted">{{ (total_kg_all.v * sk_pct / 100) | round(3) }} kg</td>
+            <td class="text-end fw-semibold text-warning">{{ "%.3f" | format(wt) }}</td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+        {% endfor %}
+        <!-- CELKOM -->
+        {% set total_kg_all2 = namespace(v=0) %}
+        {% for mid, entry in consumption.items() %}
+          {% if entry.material.naturpack_appendix == appendix %}
+            {% set _ = total_kg_all2.__setattr__('v', total_kg_all2.v + entry.total_kg) %}
+          {% endif %}
+        {% endfor %}
+        <tr class="table-light fw-semibold">
+          <td colspan="2">CELKOM</td>
+          <td class="text-end">{{ total_kg_all2.v | round(3) }} kg</td>
+          <td class="text-end">{{ (total_kg_all2.v * sk_pct / 100) | round(3) }} kg</td>
+          <td class="text-end text-warning">{{ "%.3f" | format(ns_total.t) }} t</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Materials without NATUR-PACK category -->
+{% set unmapped = [] %}
+{% for mid, entry in consumption.items() %}
+  {% if not entry.material.naturpack_material and entry.total_pcs > 0 %}
+    {% set _ = unmapped.append(entry.material.name) %}
+  {% endif %}
+{% endfor %}
+{% if unmapped %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle me-2"></i>
+  <strong>Nepřiřazené materiály</strong> (chybí NATUR-PACK kategorie):
+  {% for name in unmapped %}
+    <span class="badge bg-warning text-dark ms-1">{{ name }}</span>
+  {% endfor %}
+  <a href="{{ url_for('materials_list') }}" class="ms-2">Přiřadit kategorie →</a>
+</div>
+{% endif %}
+{% endblock %}

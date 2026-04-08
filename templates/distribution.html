@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}Rozdělení tržeb{% endblock %}
+{% block page_title %}Rozdělení tržeb po zemích{% endblock %}
+{% block breadcrumb %}Analýza /{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-md-8">
+    <p class="text-muted">
+      Zadejte procentuální poměr tržeb podle zemí za daný kvartál.
+      Spotřeba obalovky se pak rozpočítá na jednotlivé země pro EKO-KOM a NATUR-PACK výkazy.
+    </p>
+  </div>
+</div>
+
+<!-- Quarter/year selector -->
+<div class="card card-flat mb-4">
+  <div class="card-body py-3">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-auto">
+        <label class="form-label small">Rok</label>
+        <select name="year" class="form-select form-select-sm" style="width:85px">
+          {% for y in years %}
+            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label small">Kvartál</label>
+        <select name="quarter" class="form-select form-select-sm" style="width:80px">
+          {% for q in range(1,5) %}
+            <option value="{{ q }}" {% if q == quarter %}selected{% endif %}>Q{{ q }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-sm btn-outline-primary">Zobrazit</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Main distribution form -->
+  <div class="col-lg-8">
+    <div class="card card-flat">
+      <div class="card-header-flat d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-pie-chart me-2"></i>Rozdělení tržeb – Q{{ quarter }} / {{ year }}</span>
+        <span id="totalPct" class="badge {% if (total_pct | round(1)) == 100.0 %}bg-success{% else %}bg-warning text-dark{% endif %} fs-6">
+          {{ total_pct | round(1) }} %
+        </span>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('distribution_save') }}" id="distForm">
+          <input type="hidden" name="year" value="{{ year }}">
+          <input type="hidden" name="quarter" value="{{ quarter }}">
+
+          <div id="countryRows">
+            {% for row in rows %}
+            <div class="country-row d-flex align-items-center gap-3 mb-3">
+              <!-- Flag + country -->
+              <div style="width:200px" class="d-flex align-items-center gap-2">
+                <img src="https://flagcdn.com/24x18/{{ row.country_code | lower }}.png"
+                     alt="{{ row.country_code }}"
+                     onerror="this.style.display='none'">
+                <select name="country_code" class="form-select form-select-sm country-code-sel">
+                  {% for code, name in countries %}
+                    <option value="{{ code }}" {% if code == row.country_code %}selected{% endif %}>
+                      {{ code }} – {{ name }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Percentage -->
+              <div class="d-flex align-items-center gap-1" style="width:130px">
+                <input type="number" name="percentage" class="form-control form-control-sm pct-input"
+                       min="0" max="100" step="0.01"
+                       value="{{ row.percentage | float }}" placeholder="0.00">
+                <span class="text-muted">%</span>
+              </div>
+
+              <!-- Report flags -->
+              <div class="d-flex gap-2">
+                {% if row.country_code == 'CZ' %}
+                  <span class="badge bg-primary-soft text-primary border border-primary">EKO-KOM</span>
+                {% endif %}
+                {% if row.country_code == 'SK' %}
+                  <span class="badge bg-warning-soft text-warning border border-warning">NATUR-PACK</span>
+                {% endif %}
+                {% if row.country_code in ('DE','FR') %}
+                  <span class="badge bg-light text-muted border">Roční</span>
+                {% endif %}
+              </div>
+
+              <!-- Remove button -->
+              <button type="button" class="btn btn-sm btn-outline-danger ms-auto remove-row">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+            {% endfor %}
+          </div>
+
+          <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="addCountryRow">
+            <i class="bi bi-plus-lg me-1"></i>Přidat zemi
+          </button>
+
+          <hr class="my-4">
+
+          {% if (total_pct | round(1)) != 100.0 and rows %}
+          <div class="alert alert-warning py-2 mb-3">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Součet procent je <strong>{{ total_pct | round(2) }} %</strong> (musí být 100 %).
+          </div>
+          {% endif %}
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-success px-4">
+              <i class="bi bi-floppy me-1"></i>Uložit rozdělení
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar: copy + info -->
+  <div class="col-lg-4">
+    <div class="card card-flat mb-3">
+      <div class="card-header-flat"><i class="bi bi-copy me-2"></i>Zkopírovat z jiného kvartálu</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('distribution_copy') }}">
+          <div class="row g-2 mb-2">
+            <div class="col">
+              <label class="form-label small">Zdrojový rok</label>
+              <select name="from_year" class="form-select form-select-sm">
+                {% for y in years %}
+                  <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col">
+              <label class="form-label small">Kvartál</label>
+              <select name="from_quarter" class="form-select form-select-sm">
+                {% for q in range(1,5) %}
+                  <option value="{{ q }}" {% if q == quarter - 1 or (quarter == 1 and q == 4) %}selected{% endif %}>Q{{ q }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <input type="hidden" name="to_year" value="{{ year }}">
+          <input type="hidden" name="to_quarter" value="{{ quarter }}">
+          <button type="submit" class="btn btn-sm btn-outline-primary w-100">
+            <i class="bi bi-arrow-down me-1"></i>Zkopírovat do Q{{ quarter }}/{{ year }}
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card card-flat">
+      <div class="card-header-flat"><i class="bi bi-info-circle me-2"></i>Jak to funguje</div>
+      <div class="card-body small text-muted">
+        <p>Procentuální podíl tržeb určuje, jak se celková spotřeba obalovky rozdělí do výkazů:</p>
+        <ul class="ps-3">
+          <li><strong>CZ %</strong> → EKO-KOM výkaz (tuny v ČR)</li>
+          <li><strong>SK %</strong> → NATUR-PACK výkaz (tuny v SK)</li>
+          <li><strong>DE, FR %</strong> → Roční výkaz</li>
+          <li>Ostatní země → pouze interní sledování</li>
+        </ul>
+        <p class="mb-0">Procenta se typicky mění kvartálně dle skutečných tržeb.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Country row template (hidden, cloned by JS) -->
+<template id="rowTemplate">
+  <div class="country-row d-flex align-items-center gap-3 mb-3">
+    <div style="width:200px" class="d-flex align-items-center gap-2">
+      <img src="" alt="" class="flag-img" style="width:24px;height:18px">
+      <select name="country_code" class="form-select form-select-sm country-code-sel">
+        {% for code, name in countries %}
+          <option value="{{ code }}">{{ code }} – {{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="d-flex align-items-center gap-1" style="width:130px">
+      <input type="number" name="percentage" class="form-control form-control-sm pct-input"
+             min="0" max="100" step="0.01" placeholder="0.00">
+      <span class="text-muted">%</span>
+    </div>
+    <div class="badge-placeholder"></div>
+    <button type="button" class="btn btn-sm btn-outline-danger ms-auto remove-row">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Recalculate total %
+function recalcTotal() {
+  let total = 0;
+  document.querySelectorAll(".pct-input").forEach(i => total += parseFloat(i.value) || 0);
+  const el = document.getElementById("totalPct");
+  el.textContent = total.toFixed(1) + " %";
+  el.className = "badge fs-6 " + (Math.abs(total - 100) < 0.05 ? "bg-success" : "bg-warning text-dark");
+}
+
+// Update flag image when country changes
+function updateFlag(sel) {
+  const code = sel.value.toLowerCase();
+  const img  = sel.closest(".country-row").querySelector(".flag-img, img[alt]");
+  if (img) { img.src = `https://flagcdn.com/24x18/${code}.png`; img.alt = code.toUpperCase(); }
+}
+
+document.addEventListener("input", e => {
+  if (e.target.classList.contains("pct-input")) recalcTotal();
+  if (e.target.classList.contains("country-code-sel")) updateFlag(e.target);
+});
+
+document.addEventListener("click", e => {
+  if (e.target.closest(".remove-row")) {
+    e.target.closest(".country-row").remove();
+    recalcTotal();
+  }
+});
+
+document.getElementById("addCountryRow").addEventListener("click", function() {
+  const tpl   = document.getElementById("rowTemplate").content.cloneNode(true);
+  document.getElementById("countryRows").appendChild(tpl);
+  recalcTotal();
+});
+</script>
+{% endblock %}

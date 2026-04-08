@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Historie spotřeby{% endblock %}
+{% block page_title %}Historie spotřeby {{ year }}{% endblock %}
+{% block breadcrumb %}Analýza /{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <p class="text-muted mb-0">Přehled spotřeby obalového materiálu po měsících.</p>
+  <form method="get" class="d-flex gap-2 align-items-center">
+    <label class="text-muted small me-1">Rok:</label>
+    <select name="year" class="form-select form-select-sm" style="width:90px" onchange="this.form.submit()">
+      {% for y in years %}
+        <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<!-- View toggle -->
+<ul class="nav nav-pills mb-3" id="viewTabs">
+  <li class="nav-item"><button class="nav-link active" data-view="kg">Spotřeba (kg)</button></li>
+  <li class="nav-item"><button class="nav-link ms-1" data-view="pcs">Spotřeba (ks)</button></li>
+  <li class="nav-item"><button class="nav-link ms-1" data-view="cost">Náklady (Kč)</button></li>
+</ul>
+
+{% set col_months = range(1, 13) %}
+
+<div class="card card-flat">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover history-table mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th style="min-width:200px">Materiál</th>
+          {% for m in col_months %}
+            <th class="text-center" style="width:75px">
+              {{ months_cz[m][:3] }}
+            </th>
+          {% endfor %}
+          <th class="text-center" style="width:90px">Rok celkem</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for mid, entry in data.items() %}
+        {% set mat = entry.material %}
+        {% if mat.active or entry.months.values() | selectattr('has_inventory') | list %}
+        <tr class="{% if not mat.active %}text-muted{% endif %}">
+          <td>
+            <span class="fw-semibold">{{ mat.name }}</span>
+            {% if not mat.active %}<span class="badge bg-secondary ms-1">archiv</span>{% endif %}
+            <br><small class="text-muted">{{ mat.weight_g | float }} g/ks</small>
+          </td>
+          {% set year_total_kg = namespace(v=0) %}
+          {% set year_total_pcs = namespace(v=0) %}
+          {% for m in col_months %}
+          {% set c = entry.months[m] %}
+          {% if c.has_inventory %}
+            {% set _ = year_total_kg.__setattr__('v', year_total_kg.v + (c.weight_kg or 0)) %}
+            {% set _ = year_total_pcs.__setattr__('v', year_total_pcs.v + (c.consumption or 0)) %}
+          {% endif %}
+          <td class="text-center {% if not c.has_inventory %}text-muted{% endif %}"
+              data-kg="{{ c.weight_kg if c.has_inventory else '' }}"
+              data-pcs="{{ c.consumption if c.has_inventory else '' }}">
+            {% if c.has_inventory and c.consumption is not none %}
+              <span class="view-kg">{{ c.weight_kg | round(2) }}</span>
+              <span class="view-pcs d-none">{{ c.consumption }}</span>
+              <span class="view-cost d-none">–</span>
+            {% elif m <= today.month or year < today.year %}
+              <span class="text-danger small"><i class="bi bi-dash-circle"></i></span>
+            {% else %}
+              <span class="text-muted">·</span>
+            {% endif %}
+          </td>
+          {% endfor %}
+          <td class="text-center fw-semibold">
+            <span class="view-kg">{{ year_total_kg.v | round(2) }}</span>
+            <span class="view-pcs d-none">{{ year_total_pcs.v }}</span>
+            <span class="view-cost d-none">–</span>
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-semibold">
+        <tr>
+          <td>CELKEM</td>
+          {% set grand_total_kg = namespace(v=0) %}
+          {% for m in col_months %}
+          {% set month_kg = namespace(v=0) %}
+          {% for mid, entry in data.items() %}
+            {% set c = entry.months[m] %}
+            {% if c.has_inventory %}
+              {% set _ = month_kg.__setattr__('v', month_kg.v + (c.weight_kg or 0)) %}
+              {% set _ = grand_total_kg.__setattr__('v', grand_total_kg.v + (c.weight_kg or 0)) %}
+            {% endif %}
+          {% endfor %}
+          <td class="text-center">
+            <span class="view-kg">{{ month_kg.v | round(1) }}</span>
+            <span class="view-pcs d-none">–</span>
+            <span class="view-cost d-none">–</span>
+          </td>
+          {% endfor %}
+          <td class="text-center">
+            <span class="view-kg">{{ grand_total_kg.v | round(1) }} kg</span>
+            <span class="view-pcs d-none">–</span>
+            <span class="view-cost d-none">–</span>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<p class="text-muted small mt-2">
+  <i class="bi bi-dash-circle text-danger"></i> = Chybí inventura &nbsp;|&nbsp;
+  · = budoucí měsíc
+</p>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const today = new Date();
+document.querySelectorAll("[data-view]").forEach(btn => {
+  btn.addEventListener("click", function() {
+    const view = this.dataset.view;
+    document.querySelectorAll("[data-view]").forEach(b => b.classList.remove("active"));
+    this.classList.add("active");
+    document.querySelectorAll(".view-kg, .view-pcs, .view-cost").forEach(el => el.classList.add("d-none"));
+    document.querySelectorAll(".view-" + view).forEach(el => el.classList.remove("d-none"));
+  });
+});
+</script>
+{% endblock %}

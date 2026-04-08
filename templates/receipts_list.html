@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Seznam příjmů{% endblock %}
+{% block page_title %}Příjmy obalovky{% endblock %}
+{% block breadcrumb %}Zadávání dat /{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <p class="text-muted mb-0">Přehled všech naskladnění obalového materiálu.</p>
+  <a href="{{ url_for('receipt_add') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i>Nový příjem
+  </a>
+</div>
+
+<!-- Filter bar -->
+<div class="card card-flat mb-4">
+  <div class="card-body py-3">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-sm-3">
+        <label class="form-label small">Rok</label>
+        <select name="year" class="form-select form-select-sm">
+          {% for y in years %}
+            <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-3">
+        <label class="form-label small">Měsíc</label>
+        <select name="month" class="form-select form-select-sm">
+          <option value="">– Všechny –</option>
+          {% for i in range(1, 13) %}
+            <option value="{{ i }}" {% if i == selected_month %}selected{% endif %}>{{ months_cz[i] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-4">
+        <label class="form-label small">Materiál</label>
+        <select name="material_id" class="form-select form-select-sm">
+          <option value="">– Všechny –</option>
+          {% for m in materials %}
+            <option value="{{ m.id }}" {% if m.id == selected_material %}selected{% endif %}>{{ m.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-2">
+        <button type="submit" class="btn btn-sm btn-outline-primary w-100">Filtrovat</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Receipts table -->
+<div class="card card-flat">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Datum</th>
+          <th>Materiál</th>
+          <th class="text-end">Množství (ks)</th>
+          <th class="text-end">Cena/ks</th>
+          <th class="text-end">Celkem</th>
+          <th>Faktura</th>
+          <th>Poznámka</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if receipts %}
+          {% set total_pcs = namespace(v=0) %}
+          {% set total_cost = namespace(v=0) %}
+          {% for r in receipts %}
+          {% set _ = total_pcs.__setattr__('v', total_pcs.v + r.quantity_pcs) %}
+          {% set cost = (r.price_per_unit * r.quantity_pcs) if r.price_per_unit else 0 %}
+          {% set _ = total_cost.__setattr__('v', total_cost.v + cost) %}
+          <tr>
+            <td class="text-nowrap">{{ r.receipt_date.strftime('%d.%m.%Y') if r.receipt_date else '–' }}</td>
+            <td>
+              <span class="fw-semibold">{{ r.material_name }}</span>
+              <br><small class="text-muted">{{ (r.weight_g * r.quantity_pcs / 1000) | round(2) }} kg</small>
+            </td>
+            <td class="text-end fw-semibold">{{ "{:,}".format(r.quantity_pcs) }} ks</td>
+            <td class="text-end text-muted">
+              {% if r.price_per_unit %}{{ "%.4f" | format(r.price_per_unit | float) }} Kč{% else %}–{% endif %}
+            </td>
+            <td class="text-end">
+              {% if r.price_per_unit %}
+                <span class="fw-semibold">{{ "%.2f" | format((r.price_per_unit * r.quantity_pcs) | float) }} Kč</span>
+              {% else %}–{% endif %}
+            </td>
+            <td class="text-muted small">{{ r.supplier_invoice or "–" }}</td>
+            <td class="text-muted small">{{ r.notes or "–" }}</td>
+            <td>
+              <form method="post" action="{{ url_for('receipt_delete', rid=r.id) }}"
+                    onsubmit="return confirm('Smazat tento příjem?')">
+                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash3"></i></button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+          <!-- Summary row -->
+          <tr class="table-light fw-semibold">
+            <td colspan="2">Celkem {{ receipts | length }} záznamů</td>
+            <td class="text-end">{{ "{:,}".format(total_pcs.v) }} ks</td>
+            <td></td>
+            <td class="text-end">{{ "%.2f" | format(total_cost.v | float) }} Kč</td>
+            <td colspan="3"></td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="8" class="text-center text-muted py-4">
+              Žádné příjmy pro zvolený filtr.
+              <a href="{{ url_for('receipt_add') }}">Zadat první?</a>
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

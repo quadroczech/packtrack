@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Příjem obalovky{% endblock %}
+{% block page_title %}Zadat příjem obalovky{% endblock %}
+{% block breadcrumb %}Zadávání /{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-7">
+
+<div class="card card-flat">
+  <div class="card-header-flat">
+    <i class="bi bi-box-arrow-in-down me-2 text-primary"></i>
+    Nová dodávka obalového materiálu
+  </div>
+  <div class="card-body">
+    <p class="text-muted small mb-4">
+      Zadávejte příjem ihned po každé dodávce – kdykoliv v průběhu měsíce.
+      Pro výpočet spotřeby se příjmy sečtou za celý měsíc.
+    </p>
+
+    <form method="post" action="{{ url_for('receipt_add') }}">
+      <input type="hidden" name="next" value="{{ request.referrer or '' }}">
+
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label fw-semibold">Materiál <span class="text-danger">*</span></label>
+          <select name="material_id" class="form-select" required id="materialSelect">
+            <option value="">– Vyberte materiál –</option>
+            {% for m in materials %}
+              <option value="{{ m.id }}"
+                {% if pre_material_id and pre_material_id == m.id %}selected{% endif %}>
+                {{ m.name }}{% if m.supplier %} ({{ m.supplier }}){% endif %}
+              </option>
+            {% endfor %}
+          </select>
+          {% if not materials %}
+            <div class="form-text text-warning">
+              <i class="bi bi-exclamation-triangle"></i>
+              Nejprve <a href="{{ url_for('material_add') }}">přidejte materiály</a>.
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="col-sm-6">
+          <label class="form-label fw-semibold">Datum příjmu <span class="text-danger">*</span></label>
+          <input type="date" name="receipt_date" class="form-control"
+                 value="{{ today }}" required max="{{ today }}">
+        </div>
+
+        <div class="col-sm-6">
+          <label class="form-label fw-semibold">Množství (ks) <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <input type="number" name="quantity_pcs" class="form-control"
+                   min="1" step="1" required placeholder="0" id="qtyInput">
+            <span class="input-group-text">ks</span>
+          </div>
+        </div>
+
+        <div class="col-sm-6">
+          <label class="form-label">Nákupní cena / ks (Kč)</label>
+          <div class="input-group">
+            <input type="number" name="price_per_unit" class="form-control"
+                   step="0.0001" min="0" placeholder="0.0000" id="priceInput">
+            <span class="input-group-text">Kč/ks</span>
+          </div>
+        </div>
+
+        <div class="col-sm-6">
+          <label class="form-label">Celková cena</label>
+          <div class="input-group">
+            <input type="text" class="form-control bg-light" id="totalPrice" readonly placeholder="–">
+            <span class="input-group-text">Kč</span>
+          </div>
+        </div>
+
+        <div class="col-sm-6">
+          <label class="form-label">Číslo faktury / dodacího listu</label>
+          <input type="text" name="supplier_invoice" class="form-control"
+                 placeholder="např. FA 2025/0123">
+        </div>
+
+        <div class="col-sm-6">
+          <label class="form-label">Poznámka</label>
+          <input type="text" name="notes" class="form-control" placeholder="volitelná poznámka">
+        </div>
+      </div>
+
+      <hr class="my-4">
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary px-4">
+          <i class="bi bi-check-lg me-1"></i>Uložit příjem
+        </button>
+        <button type="submit" name="another" value="1" class="btn btn-outline-primary">
+          Uložit a zadat další
+        </button>
+        <a href="{{ url_for('receipts_list') }}" class="btn btn-outline-secondary ms-auto">Zpět</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Auto-calculate total price
+  const qty   = document.getElementById("qtyInput");
+  const price = document.getElementById("priceInput");
+  const total = document.getElementById("totalPrice");
+
+  function recalc() {
+    const q = parseFloat(qty.value) || 0;
+    const p = parseFloat(price.value) || 0;
+    if (q > 0 && p > 0) {
+      total.value = (q * p).toFixed(2) + " Kč";
+    } else {
+      total.value = "";
+    }
+  }
+  qty.addEventListener("input", recalc);
+  price.addEventListener("input", recalc);
+</script>
+{% endblock %}
