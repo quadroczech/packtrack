@@ -107,7 +107,8 @@
             </td>
             <td>
               <span class="badge
-                {% if m.get('material_type') == 'marketing' %}bg-warning-soft text-warning border border-warning
+                {% if m.get('material_type') == 'overwrap' %}bg-success-soft text-success border border-success
+                {% elif m.get('material_type') == 'marketing' %}bg-warning-soft text-warning border border-warning
                 {% elif m.get('material_type') == 'internal' %}bg-secondary text-white border border-secondary
                 {% else %}bg-primary-soft text-primary border border-primary{% endif %}
                 small">

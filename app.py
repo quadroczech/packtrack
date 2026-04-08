@@ -131,6 +131,7 @@ def material_delete(mid):
 
 MATERIAL_TYPES = [
     ("packaging",  "Obalové"),
+    ("overwrap",   "Přebaly"),
     ("marketing",  "Marketingové"),
     ("internal",   "Interní spotřeba"),
 ]
