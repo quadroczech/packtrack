@@ -85,12 +85,19 @@ body {
 }
 
 .nav-section {
-  padding: 0.5rem 1.25rem 0.2rem;
-  font-size: 0.72rem;
+  padding: 1rem 1.25rem 0.25rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: .08em;
-  color: #4a5568;
-  font-weight: 600;
+  letter-spacing: .1em;
+  color: #7c8fa3;
+  font-weight: 700;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  margin-top: 0.25rem;
+}
+
+.sidebar-nav li:first-child .nav-section,
+.sidebar-nav > li:first-of-type {
+  border-top: none;
 }
 
 .sidebar-footer {
