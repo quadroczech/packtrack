@@ -252,6 +252,31 @@ body {
 .table { font-size: 0.875rem; }
 .table th { font-weight: 600; color: #4b5563; font-size: 0.8rem; text-transform: uppercase; letter-spacing: .03em; }
 
+/* History table – custom dark header */
+.history-thead th {
+  background: #1e293b;
+  color: #e2e8f0 !important;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 0.6rem 0.5rem;
+  border-color: #334155;
+  white-space: nowrap;
+}
+.history-thead th.month-col {
+  min-width: 58px;
+  text-align: center;
+}
+.history-thead th.month-col .month-num {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 400;
+  color: #94a3b8;
+  letter-spacing: 0;
+  margin-top: 1px;
+}
+
 /* ── Badges ───────────────────────────────────────────────────────────────── */
 
 .badge { font-size: 0.75rem; font-weight: 500; }

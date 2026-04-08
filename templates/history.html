@@ -28,15 +28,17 @@
 <div class="card card-flat">
   <div class="table-responsive">
     <table class="table table-sm table-hover history-table mb-0">
-      <thead class="table-dark">
+      <thead class="history-thead">
         <tr>
           <th style="min-width:200px">Materiál</th>
+          {% set month_abbr = ["","Led","Úno","Bře","Dub","Kvě","Čvn","Čvc","Srp","Zář","Říj","Lis","Pro"] %}
           {% for m in col_months %}
-            <th class="text-center" style="width:75px">
-              {{ months_cz[m][:3] }}
+            <th class="month-col">
+              {{ month_abbr[m] }}
+              <span class="month-num">{{ m }}</span>
             </th>
           {% endfor %}
-          <th class="text-center" style="width:90px">Rok celkem</th>
+          <th class="text-center" style="min-width:90px">Rok celkem</th>
         </tr>
       </thead>
       <tbody>
