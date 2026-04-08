@@ -54,11 +54,21 @@ def dashboard():
 
 @app.route("/materials")
 def materials_list():
-    mats = db.get_materials()
+    f_supplier  = request.args.get("supplier", "").strip() or None
+    f_ekokom    = request.args.get("ekokom_material", "").strip() or None
+    f_naturpack = request.args.get("naturpack_material", "").strip() or None
+    f_type      = request.args.get("material_type", "").strip() or None
+    mats = db.get_materials(supplier=f_supplier, ekokom_material=f_ekokom,
+                            naturpack_material=f_naturpack, material_type=f_type)
+    suppliers = db.get_distinct_suppliers()
     return render_template("materials_list.html",
                            materials=mats,
                            ekokom_mats=reports.EKOKOM_MATERIALS,
-                           naturpack_mats=reports.NATURPACK_MATERIALS)
+                           naturpack_mats=reports.NATURPACK_MATERIALS,
+                           material_types=MATERIAL_TYPES,
+                           suppliers=suppliers,
+                           f_supplier=f_supplier, f_ekokom=f_ekokom,
+                           f_naturpack=f_naturpack, f_type=f_type)
 
 
 @app.route("/materials/add", methods=["GET", "POST"])
@@ -76,6 +86,7 @@ def material_add():
                            ekokom_sheets=reports.EKOKOM_SHEETS,
                            naturpack_mats=reports.NATURPACK_MATERIALS,
                            naturpack_apps=reports.NATURPACK_APPENDICES,
+                           material_types=MATERIAL_TYPES,
                            action=url_for("material_add"))
 
 
@@ -98,6 +109,7 @@ def material_edit(mid):
                            ekokom_sheets=reports.EKOKOM_SHEETS,
                            naturpack_mats=reports.NATURPACK_MATERIALS,
                            naturpack_apps=reports.NATURPACK_APPENDICES,
+                           material_types=MATERIAL_TYPES,
                            action=url_for("material_edit", mid=mid))
 
 
@@ -117,6 +129,12 @@ def material_delete(mid):
     return redirect(url_for("materials_list"))
 
 
+MATERIAL_TYPES = [
+    ("packaging",  "Obalové"),
+    ("marketing",  "Marketingové"),
+    ("internal",   "Interní spotřeba"),
+]
+
 def _material_from_form():
     f = request.form
     return {
@@ -132,6 +150,8 @@ def _material_from_form():
         "naturpack_appendix": f.get("naturpack_appendix", "consumer"),
         "notes":              f.get("notes", "").strip(),
         "initial_stock":      int(f.get("initial_stock") or 0),
+        "include_in_reports": "include_in_reports" in f,
+        "material_type":      f.get("material_type", "packaging"),
     }
 
 
@@ -250,10 +270,12 @@ def history():
         years = sorted(set(years + [year]))
     data = reports.get_history_table(year)
     mats = db.get_materials(active_only=False)
+    avg_prices = db.get_avg_prices_all()
     return render_template("history.html",
                            year=year, month=month, years=years,
                            min_year=min(years), max_year=max(years),
                            data=data, materials=mats,
+                           avg_prices=avg_prices,
                            months_cz=MONTHS_CZ,
                            today=date.today())
 
@@ -384,13 +406,19 @@ def report_ekokom(year, quarter):
 
 @app.route("/reports/ekokom/<int:year>/<int:quarter>/export")
 def report_ekokom_export(year, quarter):
-    settings   = db.get_settings()
-    cell_data  = reports.build_ekokom_data(year, quarter)
-    buf        = ekokom_export.generate_ekokom(year, quarter, cell_data, settings)
-    filename   = f"EKOKOM_{settings.get('ekokom_id','')}_Q{quarter}_{year}.xlsx"
-    return send_file(buf, as_attachment=True,
-                     download_name=filename,
-                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    try:
+        settings   = db.get_settings()
+        cell_data  = reports.build_ekokom_data(year, quarter)
+        buf        = ekokom_export.generate_ekokom(year, quarter, cell_data, settings)
+        filename   = f"EKOKOM_{settings.get('ekokom_id','')}_Q{quarter}_{year}.xlsx"
+        return send_file(buf, as_attachment=True,
+                         download_name=filename,
+                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    except Exception as e:
+        import traceback
+        flash(f"Chyba při generování EKO-KOM exportu: {e}", "danger")
+        app.logger.error("EKO-KOM export error: %s", traceback.format_exc())
+        return redirect(url_for("report_ekokom", year=year, quarter=quarter))
 
 
 @app.route("/reports/naturpack/<int:year>/<int:quarter>")

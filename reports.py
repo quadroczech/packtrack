@@ -260,6 +260,7 @@ def build_ekokom_data(year, quarter):
     Aggregates consumption for EKO-KOM report.
     Returns { (sheet, row, col): weight_t } for each material entry.
     CZ percentage is applied here.
+    Only materials with include_in_reports=True are included.
     """
     cz_pct = db.get_country_pct(year, quarter, "CZ") / 100.0
     consumption = get_quarter_consumption(year, quarter)
@@ -268,6 +269,8 @@ def build_ekokom_data(year, quarter):
     for mid, entry in consumption.items():
         m = entry["material"]
         if not m.get("ekokom_material"):
+            continue
+        if not m.get("include_in_reports", True):
             continue
         weight_t_total = entry["total_t"]
         weight_t_cz = round(weight_t_total * cz_pct, 6)
@@ -334,6 +337,7 @@ def build_naturpack_data(year, quarter):
     """
     Aggregates consumption for NATUR-PACK report.
     Returns { (appendix, material_code): weight_t } after applying SK%.
+    Only materials with include_in_reports=True are included.
     """
     sk_pct = db.get_country_pct(year, quarter, "SK") / 100.0
     consumption = get_quarter_consumption(year, quarter)
@@ -342,6 +346,8 @@ def build_naturpack_data(year, quarter):
         m = entry["material"]
         np_mat = m.get("naturpack_material")
         if not np_mat:
+            continue
+        if not m.get("include_in_reports", True):
             continue
         appendix = m.get("naturpack_appendix", "consumer")
         weight_t_sk = round(entry["total_t"] * sk_pct, 6)

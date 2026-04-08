@@ -61,12 +61,14 @@
           <th class="text-center">Konečný stav</th>
           <th class="text-center">Spotřeba (ks)</th>
           <th class="text-center">Spotřeba (kg)</th>
+          <th class="text-center">Náklady (Kč)</th>
           <th class="text-center">Stav</th>
         </tr>
       </thead>
       <tbody>
-        {% set grand_pcs = namespace(v=0) %}
-        {% set grand_kg  = namespace(v=0) %}
+        {% set grand_pcs  = namespace(v=0) %}
+        {% set grand_kg   = namespace(v=0) %}
+        {% set grand_cost = namespace(v=0) %}
         {% for mid, entry in data.items() %}
         {% set mat = entry.material %}
         {% set c = entry.months[month] %}
@@ -109,6 +111,20 @@
             {% endif %}
           </td>
           <td class="text-center">
+            {% if c.has_inventory and c.consumption is not none %}
+              {% set avg_p = avg_prices.get(m.id) %}
+              {% if avg_p %}
+                {% set cost = (c.consumption * avg_p) | round(2) %}
+                <span class="fw-semibold">{{ "%.0f"|format(cost) }} Kč</span>
+                {% set _ = grand_cost.__setattr__('v', grand_cost.v + cost) %}
+              {% else %}
+                <span class="text-muted small">bez ceny</span>
+              {% endif %}
+            {% else %}
+              <span class="text-muted">–</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
             {% if c.has_inventory %}
               <span class="badge bg-success-soft text-success border border-success">
                 <i class="bi bi-check-lg"></i> OK
@@ -130,6 +146,9 @@
           <td colspan="4">CELKEM</td>
           <td class="text-center">{{ grand_pcs.v }}</td>
           <td class="text-center">{{ grand_kg.v | round(2) }} kg</td>
+          <td class="text-center fw-semibold">
+            {% if grand_cost.v > 0 %}{{ "%.0f"|format(grand_cost.v) }} Kč{% else %}–{% endif %}
+          </td>
           <td></td>
         </tr>
       </tfoot>
@@ -144,6 +163,7 @@
 <ul class="nav nav-pills mb-3" id="viewTabs">
   <li class="nav-item"><button class="nav-link active" data-view="kg">Spotřeba (kg)</button></li>
   <li class="nav-item"><button class="nav-link ms-1" data-view="pcs">Spotřeba (ks)</button></li>
+  <li class="nav-item"><button class="nav-link ms-1" data-view="cost">Náklady (Kč)</button></li>
 </ul>
 
 {% set col_months = range(1, 13) %}
@@ -177,21 +197,27 @@
             {% if not mat.active %}<span class="badge bg-secondary ms-1">archiv</span>{% endif %}
             <br><small class="text-muted">{{ (mat.weight_g | float / 1000) | round(6) }} kg/ks</small>
           </td>
-          {% set year_total_kg = namespace(v=0) %}
-          {% set year_total_pcs = namespace(v=0) %}
+          {% set year_total_kg   = namespace(v=0) %}
+          {% set year_total_pcs  = namespace(v=0) %}
+          {% set year_total_cost = namespace(v=0) %}
+          {% set avg_p = avg_prices.get(mat.id) %}
           {% for m in col_months %}
           {% set c = entry.months[m] %}
           {% if c.has_inventory %}
             {% set _ = year_total_kg.__setattr__('v', year_total_kg.v + (c.weight_kg or 0)) %}
             {% set _ = year_total_pcs.__setattr__('v', year_total_pcs.v + (c.consumption or 0)) %}
+            {% if avg_p and c.consumption %}
+              {% set _ = year_total_cost.__setattr__('v', year_total_cost.v + (c.consumption * avg_p)) %}
+            {% endif %}
           {% endif %}
-          <td class="text-center {% if not c.has_inventory %}text-muted{% endif %}"
-              data-kg="{{ c.weight_kg if c.has_inventory else '' }}"
-              data-pcs="{{ c.consumption if c.has_inventory else '' }}">
+          <td class="text-center {% if not c.has_inventory %}text-muted{% endif %}">
             {% if c.has_inventory and c.consumption is not none %}
               <a href="{{ url_for('history', year=year, month=m) }}" class="text-decoration-none text-dark">
                 <span class="view-kg">{{ c.weight_kg | round(2) }}</span>
                 <span class="view-pcs d-none">{{ c.consumption }}</span>
+                <span class="view-cost d-none">
+                  {% if avg_p %}{{ "%.0f"|format(c.consumption * avg_p) }}{% else %}–{% endif %}
+                </span>
               </a>
             {% elif m <= today.month or year < today.year %}
               <span class="text-danger small"><i class="bi bi-dash-circle"></i></span>
@@ -203,6 +229,9 @@
           <td class="text-center fw-semibold">
             <span class="view-kg">{{ year_total_kg.v | round(2) }}</span>
             <span class="view-pcs d-none">{{ year_total_pcs.v }}</span>
+            <span class="view-cost d-none">
+              {% if year_total_cost.v > 0 %}{{ "%.0f"|format(year_total_cost.v) }}{% else %}–{% endif %}
+            </span>
           </td>
         </tr>
         {% endif %}
@@ -253,7 +282,7 @@ document.querySelectorAll("[data-view]").forEach(btn => {
     const view = this.dataset.view;
     document.querySelectorAll("[data-view]").forEach(b => b.classList.remove("active"));
     this.classList.add("active");
-    document.querySelectorAll(".view-kg, .view-pcs").forEach(el => el.classList.add("d-none"));
+    document.querySelectorAll(".view-kg, .view-pcs, .view-cost").forEach(el => el.classList.add("d-none"));
     document.querySelectorAll(".view-" + view).forEach(el => el.classList.remove("d-none"));
   });
 });

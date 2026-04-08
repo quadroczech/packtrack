@@ -46,12 +46,14 @@ SIMPLE_ROWS      = list(range(9, 25))
 
 
 def _clear_sheet(ws, rows, cols):
-    """Set specified cells to None."""
+    """Set specified cells to None, leaving formula cells untouched."""
     for r in rows:
         for c in cols:
             cell = ws.cell(row=r, column=c)
-            if cell.data_type != "f":   # don't touch formula cells
-                cell.value = None
+            # Skip formula cells – value starts with '='
+            if isinstance(cell.value, str) and cell.value.startswith("="):
+                continue
+            cell.value = None
 
 
 def generate_ekokom(year: int, quarter: int, cell_data: dict,
@@ -70,7 +72,11 @@ def generate_ekokom(year: int, quarter: int, cell_data: dict,
     wb = openpyxl.load_workbook(TEMPLATE_PATH)
 
     # ── 1. Update Úvod (cover sheet) ────────────────────────────────────────
-    uvod = wb["Úvod"]
+    # Find the intro sheet by name (handles different Unicode normalizations)
+    uvod_name = next((s for s in wb.sheetnames if "vod" in s.lower()), None)
+    if uvod_name is None:
+        uvod_name = wb.sheetnames[0]
+    uvod = wb[uvod_name]
     uvod["D4"] = quarter
     uvod["D6"] = settings.get("company_name", "")
     uvod["D8"] = settings.get("company_address", "")

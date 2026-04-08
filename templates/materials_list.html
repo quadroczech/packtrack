@@ -4,13 +4,67 @@
 {% block breadcrumb %}Konfigurace /{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <p class="text-muted mb-0">
-    Seznam obalových materiálů. Každý materiál má přiřazenou kategorii pro EKO-KOM a NATUR-PACK výkazy.
-  </p>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <p class="text-muted mb-0">Seznam materiálů. Příznak <strong>Výkazy</strong> určuje, zda vstupuje do EKO-KOM a NATUR-PACK hlášení.</p>
   <a href="{{ url_for('material_add') }}" class="btn btn-primary">
     <i class="bi bi-plus-lg me-1"></i>Přidat materiál
   </a>
+</div>
+
+<!-- Filter bar -->
+<div class="card card-flat mb-4">
+  <div class="card-body py-3">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-sm-3">
+        <label class="form-label small">Dodavatel</label>
+        <select name="supplier" class="form-select form-select-sm">
+          <option value="">– Vše –</option>
+          {% for s in suppliers %}
+            <option value="{{ s }}" {% if f_supplier == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-3">
+        <label class="form-label small">Typ materiálu</label>
+        <select name="material_type" class="form-select form-select-sm">
+          <option value="">– Vše –</option>
+          {% for code, label in material_types %}
+            <option value="{{ code }}" {% if f_type == code %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-3">
+        <label class="form-label small">EKO-KOM kategorie</label>
+        <select name="ekokom_material" class="form-select form-select-sm">
+          <option value="">– Vše –</option>
+          <option value="__none__" {% if f_ekokom == '__none__' %}selected{% endif %}>Nepřiřazeno</option>
+          {% for code, label, sheet, row, sec in ekokom_mats %}
+            <option value="{{ code }}" {% if f_ekokom == code %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-2">
+        <label class="form-label small">NATUR-PACK</label>
+        <select name="naturpack_material" class="form-select form-select-sm">
+          <option value="">– Vše –</option>
+          <option value="__none__" {% if f_naturpack == '__none__' %}selected{% endif %}>Nepřiřazeno</option>
+          {% for code, label in naturpack_mats %}
+            <option value="{{ code }}" {% if f_naturpack == code %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-1">
+        <button type="submit" class="btn btn-sm btn-outline-primary w-100">Filtr</button>
+      </div>
+      {% if f_supplier or f_ekokom or f_naturpack or f_type %}
+      <div class="col-auto">
+        <a href="{{ url_for('materials_list') }}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-x-lg"></i>
+        </a>
+      </div>
+      {% endif %}
+    </form>
+  </div>
 </div>
 
 <!-- Active materials -->
@@ -23,10 +77,12 @@
       <thead>
         <tr>
           <th>Název</th>
+          <th>Typ</th>
           <th>Hmotnost/ks</th>
           <th>Dodavatel</th>
           <th>EKO-KOM kategorie</th>
           <th>NATUR-PACK kat.</th>
+          <th class="text-center">Výkazy</th>
           <th class="text-end">Akce</th>
         </tr>
       </thead>
@@ -34,19 +90,29 @@
         {% set active_mats = materials | selectattr("active") | list %}
         {% if active_mats %}
           {% for m in active_mats %}
-          {% set ns = namespace(ekokom_label="", np_label="") %}
+          {% set ns = namespace(ekokom_label="", np_label="", type_label="") %}
           {% for code, label, sheet, row, sec in ekokom_mats %}
             {% if code == m.ekokom_material %}{% set ns.ekokom_label = label %}{% endif %}
           {% endfor %}
           {% for code, label in naturpack_mats %}
             {% if code == m.naturpack_material %}{% set ns.np_label = label %}{% endif %}
           {% endfor %}
-          {% set ekokom_label = ns.ekokom_label %}
-          {% set np_label = ns.np_label %}
+          {% for code, label in material_types %}
+            {% if code == m.get('material_type', 'packaging') %}{% set ns.type_label = label %}{% endif %}
+          {% endfor %}
           <tr>
             <td>
               <span class="fw-semibold">{{ m.name }}</span>
               {% if m.description %}<br><small class="text-muted">{{ m.description }}</small>{% endif %}
+            </td>
+            <td>
+              <span class="badge
+                {% if m.get('material_type') == 'marketing' %}bg-warning-soft text-warning border border-warning
+                {% elif m.get('material_type') == 'internal' %}bg-secondary text-secondary border
+                {% else %}bg-primary-soft text-primary border border-primary{% endif %}
+                small">
+                {{ ns.type_label or "Obalové" }}
+              </span>
             </td>
             <td>
               {% if m.weight_g %}
@@ -55,17 +121,24 @@
             </td>
             <td class="text-muted">{{ m.supplier or "–" }}</td>
             <td>
-              {% if ekokom_label %}
-                <small class="text-dark">{{ ekokom_label }}</small>
+              {% if ns.ekokom_label %}
+                <small class="text-dark">{{ ns.ekokom_label }}</small>
                 <br><small class="text-muted">{{ m.ekokom_sheet }}</small>
               {% else %}<span class="text-danger small"><i class="bi bi-exclamation-triangle"></i> Nepřiřazeno</span>{% endif %}
             </td>
             <td>
-              {% if np_label %}
-                <small>{{ np_label }}</small>
+              {% if ns.np_label %}
+                <small>{{ ns.np_label }}</small>
               {% else %}<span class="text-danger small"><i class="bi bi-exclamation-triangle"></i> Nepřiřazeno</span>{% endif %}
             </td>
-            <td class="text-end">
+            <td class="text-center">
+              {% if m.get('include_in_reports', True) %}
+                <i class="bi bi-check-circle-fill text-success" title="Zahrnuto ve výkazech"></i>
+              {% else %}
+                <i class="bi bi-dash-circle text-muted" title="Nezahrnuto ve výkazech"></i>
+              {% endif %}
+            </td>
+            <td class="text-end text-nowrap">
               <a href="{{ url_for('material_edit', mid=m.id) }}" class="btn btn-sm btn-outline-secondary me-1">
                 <i class="bi bi-pencil"></i>
               </a>
@@ -84,7 +157,13 @@
           </tr>
           {% endfor %}
         {% else %}
-          <tr><td colspan="6" class="text-center text-muted py-4">Žádné aktivní materiály. <a href="{{ url_for('material_add') }}">Přidat první?</a></td></tr>
+          <tr><td colspan="8" class="text-center text-muted py-4">
+            {% if f_supplier or f_ekokom or f_naturpack or f_type %}
+              Žádné materiály pro zvolený filtr. <a href="{{ url_for('materials_list') }}">Zrušit filtr</a>
+            {% else %}
+              Žádné aktivní materiály. <a href="{{ url_for('material_add') }}">Přidat první?</a>
+            {% endif %}
+          </td></tr>
         {% endif %}
       </tbody>
     </table>
@@ -110,7 +189,7 @@
             <td>{{ m.name }}</td>
             <td>{{ (m.weight_g | float / 1000) | round(6) }} kg</td>
             <td>{{ m.supplier or "–" }}</td>
-            <td>
+            <td class="text-nowrap">
               <form method="post" action="{{ url_for('material_toggle', mid=m.id) }}" class="d-inline">
                 <button class="btn btn-sm btn-outline-success">
                   <i class="bi bi-play-circle"></i> Obnovit

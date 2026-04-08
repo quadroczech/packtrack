@@ -116,6 +116,15 @@ def init_db():
                 ('invoice_email', 'fakturace@oveckarna.cz')
             ON CONFLICT (key) DO NOTHING
         """)
+        # ── Migrations: add new columns if they don't exist ───────────────────
+        cur.execute("""
+            ALTER TABLE pt_materials
+            ADD COLUMN IF NOT EXISTS include_in_reports BOOLEAN DEFAULT TRUE
+        """)
+        cur.execute("""
+            ALTER TABLE pt_materials
+            ADD COLUMN IF NOT EXISTS material_type VARCHAR(30) DEFAULT 'packaging'
+        """)
 
 
 # ── Settings ─────────────────────────────────────────────────────────────────
@@ -140,11 +149,32 @@ def save_settings(data: dict):
 
 # ── Materials ─────────────────────────────────────────────────────────────────
 
-def get_materials(active_only=False):
+def get_materials(active_only=False, supplier=None, ekokom_material=None,
+                  naturpack_material=None, material_type=None):
     with get_conn() as conn:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        where = "WHERE active = TRUE" if active_only else ""
-        cur.execute(f"SELECT * FROM pt_materials {where} ORDER BY active DESC, name")
+        conditions = []
+        params = []
+        if active_only:
+            conditions.append("active = TRUE")
+        if supplier:
+            conditions.append("supplier = %s")
+            params.append(supplier)
+        if ekokom_material == "__none__":
+            conditions.append("ekokom_material IS NULL")
+        elif ekokom_material:
+            conditions.append("ekokom_material = %s")
+            params.append(ekokom_material)
+        if naturpack_material == "__none__":
+            conditions.append("naturpack_material IS NULL")
+        elif naturpack_material:
+            conditions.append("naturpack_material = %s")
+            params.append(naturpack_material)
+        if material_type:
+            conditions.append("material_type = %s")
+            params.append(material_type)
+        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+        cur.execute(f"SELECT * FROM pt_materials {where} ORDER BY active DESC, name", params)
         return cur.fetchall()
 
 
@@ -163,12 +193,12 @@ def create_material(data: dict):
                 (name, description, weight_g, supplier,
                  ekokom_sheet, ekokom_material, ekokom_form, ekokom_origin,
                  naturpack_material, naturpack_appendix,
-                 notes, initial_stock)
+                 notes, initial_stock, include_in_reports, material_type)
             VALUES
                 (%(name)s, %(description)s, %(weight_g)s, %(supplier)s,
                  %(ekokom_sheet)s, %(ekokom_material)s, %(ekokom_form)s, %(ekokom_origin)s,
                  %(naturpack_material)s, %(naturpack_appendix)s,
-                 %(notes)s, %(initial_stock)s)
+                 %(notes)s, %(initial_stock)s, %(include_in_reports)s, %(material_type)s)
             RETURNING id
         """, data)
         return cur.fetchone()[0]
@@ -185,7 +215,9 @@ def update_material(material_id, data: dict):
                 ekokom_form=%(ekokom_form)s, ekokom_origin=%(ekokom_origin)s,
                 naturpack_material=%(naturpack_material)s,
                 naturpack_appendix=%(naturpack_appendix)s,
-                notes=%(notes)s, initial_stock=%(initial_stock)s
+                notes=%(notes)s, initial_stock=%(initial_stock)s,
+                include_in_reports=%(include_in_reports)s,
+                material_type=%(material_type)s
             WHERE id=%(id)s
         """, {**data, "id": material_id})
 
@@ -326,6 +358,28 @@ def upsert_inventory(material_id, year, month, closing_stock, notes=""):
                           notes = EXCLUDED.notes,
                           entered_at = NOW()
         """, (material_id, year, month, closing_stock, notes))
+
+
+def get_avg_prices_all():
+    """Weighted average purchase price per unit across all receipts.
+    Returns {material_id: avg_price_czk}. Materials without price data are omitted."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT material_id,
+                   SUM(price_per_unit * quantity_pcs)::float / SUM(quantity_pcs)
+            FROM pt_receipts
+            WHERE price_per_unit IS NOT NULL
+            GROUP BY material_id
+        """)
+        return {r[0]: float(r[1]) for r in cur.fetchall()}
+
+
+def get_distinct_suppliers():
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT supplier FROM pt_materials WHERE supplier IS NOT NULL AND supplier <> '' ORDER BY supplier")
+        return [r[0] for r in cur.fetchall()]
 
 
 def get_inventory_for_year(year):

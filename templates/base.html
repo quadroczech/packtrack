@@ -26,18 +26,18 @@
 
     <li class="nav-section mt-2">Zadávání dat</li>
     <li>
+      <a href="{{ url_for('inventory_list') }}" class="{% if request.endpoint in ['inventory_list','inventory_entry'] %}active{% endif %}">
+        <i class="bi bi-clipboard2-check"></i> Inventura
+      </a>
+    </li>
+    <li>
       <a href="{{ url_for('receipt_add') }}" class="{% if request.endpoint == 'receipt_add' %}active{% endif %}">
         <i class="bi bi-box-arrow-in-down"></i> Příjem obalovky
       </a>
     </li>
     <li>
-      <a href="{{ url_for('receipts_list') }}" class="{% if request.endpoint == 'receipts_list' %}active{% endif %}">
-        <i class="bi bi-list-ul"></i> Seznam příjmů
-      </a>
-    </li>
-    <li>
-      <a href="{{ url_for('inventory_list') }}" class="{% if request.endpoint in ['inventory_list','inventory_entry'] %}active{% endif %}">
-        <i class="bi bi-clipboard2-check"></i> Inventura
+      <a href="{{ url_for('distribution') }}" class="{% if request.endpoint in ['distribution','distribution_save'] %}active{% endif %}">
+        <i class="bi bi-pie-chart"></i> Rozdělení tržeb
       </a>
     </li>
 
@@ -48,8 +48,8 @@
       </a>
     </li>
     <li>
-      <a href="{{ url_for('distribution') }}" class="{% if request.endpoint in ['distribution','distribution_save'] %}active{% endif %}">
-        <i class="bi bi-pie-chart"></i> Rozdělení tržeb
+      <a href="{{ url_for('receipts_list') }}" class="{% if request.endpoint == 'receipts_list' %}active{% endif %}">
+        <i class="bi bi-receipt"></i> Historie příjmů
       </a>
     </li>
 
@@ -87,11 +87,11 @@
       <strong>{% block page_title %}{% endblock %}</strong>
     </div>
     <div class="d-flex align-items-center gap-3">
-      <a href="{{ url_for('receipt_add') }}" class="btn btn-sm btn-primary">
-        <i class="bi bi-plus-lg"></i> Příjem
-      </a>
-      <a href="{{ url_for('inventory_list') }}" class="btn btn-sm btn-outline-secondary">
+      <a href="{{ url_for('inventory_list') }}" class="btn btn-sm btn-primary">
         <i class="bi bi-clipboard2-check"></i> Inventura
+      </a>
+      <a href="{{ url_for('receipt_add') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-plus-lg"></i> Příjem
       </a>
     </div>
   </header>
