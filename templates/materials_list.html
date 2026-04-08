@@ -108,7 +108,7 @@
             <td>
               <span class="badge
                 {% if m.get('material_type') == 'marketing' %}bg-warning-soft text-warning border border-warning
-                {% elif m.get('material_type') == 'internal' %}bg-secondary text-secondary border
+                {% elif m.get('material_type') == 'internal' %}bg-secondary text-white border border-secondary
                 {% else %}bg-primary-soft text-primary border border-primary{% endif %}
                 small">
                 {{ ns.type_label or "Obalové" }}
