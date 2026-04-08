@@ -34,14 +34,15 @@
         {% set active_mats = materials | selectattr("active") | list %}
         {% if active_mats %}
           {% for m in active_mats %}
-          {% set ekokom_label = "" %}
+          {% set ns = namespace(ekokom_label="", np_label="") %}
           {% for code, label, sheet, row, sec in ekokom_mats %}
-            {% if code == m.ekokom_material %}{% set ekokom_label = label %}{% endif %}
+            {% if code == m.ekokom_material %}{% set ns.ekokom_label = label %}{% endif %}
           {% endfor %}
-          {% set np_label = "" %}
           {% for code, label in naturpack_mats %}
-            {% if code == m.naturpack_material %}{% set np_label = label %}{% endif %}
+            {% if code == m.naturpack_material %}{% set ns.np_label = label %}{% endif %}
           {% endfor %}
+          {% set ekokom_label = ns.ekokom_label %}
+          {% set np_label = ns.np_label %}
           <tr>
             <td>
               <span class="fw-semibold">{{ m.name }}</span>
