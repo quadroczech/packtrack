@@ -225,14 +225,18 @@ def inventory_entry(year, month):
 
 @app.route("/history")
 def history():
-    year = request.args.get("year", type=int, default=date.today().year)
+    year  = request.args.get("year",  type=int, default=date.today().year)
+    month = request.args.get("month", type=int, default=None)
+    if month == 0:
+        month = None
     years = db.get_available_years() or [date.today().year]
     if year not in years:
         years = sorted(set(years + [year]))
     data = reports.get_history_table(year)
     mats = db.get_materials(active_only=False)
     return render_template("history.html",
-                           year=year, years=years,
+                           year=year, month=month, years=years,
+                           min_year=min(years), max_year=max(years),
                            data=data, materials=mats,
                            months_cz=MONTHS_CZ,
                            today=date.today())

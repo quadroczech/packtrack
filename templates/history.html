@@ -1,26 +1,149 @@
 {% extends "base.html" %}
 {% block title %}Historie spotřeby{% endblock %}
-{% block page_title %}Historie spotřeby {{ year }}{% endblock %}
+{% block page_title %}Historie spotřeby{% endblock %}
 {% block breadcrumb %}Analýza /{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <p class="text-muted mb-0">Přehled spotřeby obalového materiálu po měsících.</p>
-  <form method="get" class="d-flex gap-2 align-items-center">
-    <label class="text-muted small me-1">Rok:</label>
+
+  <form method="get" class="d-flex gap-2 align-items-center" id="filterForm">
+    <label class="text-muted small">Rok:</label>
     <select name="year" class="form-select form-select-sm" style="width:90px" onchange="this.form.submit()">
       {% for y in years %}
         <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
       {% endfor %}
     </select>
+    <label class="text-muted small ms-2">Měsíc:</label>
+    <select name="month" class="form-select form-select-sm" style="width:140px" onchange="this.form.submit()">
+      <option value="0" {% if not month %}selected{% endif %}>— Celý rok —</option>
+      {% for i in range(1,13) %}
+        <option value="{{ i }}" {% if month == i %}selected{% endif %}>{{ months_cz[i] }}</option>
+      {% endfor %}
+    </select>
   </form>
 </div>
+
+{% if month %}
+{# ── MĚSÍČNÍ POHLED ──────────────────────────────────────────────────────── #}
+<div class="mb-2 d-flex align-items-center gap-3">
+  <h5 class="mb-0">{{ months_cz[month] }} {{ year }}</h5>
+  <div class="d-flex gap-1">
+    {% if month > 1 %}
+      <a href="{{ url_for('history', year=year, month=month-1) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+    {% elif year > min_year %}
+      <a href="{{ url_for('history', year=year-1, month=12) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+    {% endif %}
+    {% if month < 12 %}
+      <a href="{{ url_for('history', year=year, month=month+1) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+    {% elif year < max_year %}
+      <a href="{{ url_for('history', year=year+1, month=1) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card card-flat">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+      <thead class="history-thead">
+        <tr>
+          <th style="min-width:220px">Materiál</th>
+          <th class="text-center">Počáteční stav</th>
+          <th class="text-center">Příjem (ks)</th>
+          <th class="text-center">Konečný stav</th>
+          <th class="text-center">Spotřeba (ks)</th>
+          <th class="text-center">Spotřeba (kg)</th>
+          <th class="text-center">Stav</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set grand_pcs = namespace(v=0) %}
+        {% set grand_kg  = namespace(v=0) %}
+        {% for mid, entry in data.items() %}
+        {% set mat = entry.material %}
+        {% set c = entry.months[month] %}
+        {% if mat.active or c.has_inventory %}
+        <tr class="{% if not mat.active %}text-muted{% endif %}">
+          <td>
+            <span class="fw-semibold">{{ mat.name }}</span>
+            {% if not mat.active %}<span class="badge bg-secondary ms-1">archiv</span>{% endif %}
+            <br><small class="text-muted">{{ mat.weight_g | float }} g/ks</small>
+          </td>
+          <td class="text-center">{{ c.opening if c.has_inventory or c.opening else "–" }}</td>
+          <td class="text-center">
+            {% if c.incoming > 0 %}
+              <span class="badge bg-success-soft text-success border border-success">+{{ c.incoming }}</span>
+            {% else %}
+              <span class="text-muted">0</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if c.has_inventory %}{{ c.closing }}{% else %}<span class="text-muted">–</span>{% endif %}
+          </td>
+          <td class="text-center fw-semibold">
+            {% if c.has_inventory and c.consumption is not none %}
+              {% if c.consumption > 0 %}
+                {{ c.consumption }}
+              {% else %}
+                <span class="text-muted">0</span>
+              {% endif %}
+              {% set _ = grand_pcs.__setattr__('v', grand_pcs.v + c.consumption) %}
+            {% else %}
+              <span class="text-muted">–</span>
+            {% endif %}
+          </td>
+          <td class="text-center fw-semibold">
+            {% if c.has_inventory and c.consumption is not none %}
+              {{ c.weight_kg | round(3) }} kg
+              {% set _ = grand_kg.__setattr__('v', grand_kg.v + (c.weight_kg or 0)) %}
+            {% else %}
+              <span class="text-muted">–</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if c.has_inventory %}
+              <span class="badge bg-success-soft text-success border border-success">
+                <i class="bi bi-check-lg"></i> OK
+              </span>
+            {% elif month <= today.month or year < today.year %}
+              <span class="badge bg-danger-soft text-danger border border-danger">
+                <i class="bi bi-exclamation-triangle"></i> Chybí
+              </span>
+            {% else %}
+              <span class="badge bg-light text-muted border">Budoucí</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-semibold">
+        <tr>
+          <td colspan="4">CELKEM</td>
+          <td class="text-center">{{ grand_pcs.v }}</td>
+          <td class="text-center">{{ grand_kg.v | round(2) }} kg</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+{% else %}
+{# ── ROČNÍ PŘEHLED ───────────────────────────────────────────────────────── #}
 
 <!-- View toggle -->
 <ul class="nav nav-pills mb-3" id="viewTabs">
   <li class="nav-item"><button class="nav-link active" data-view="kg">Spotřeba (kg)</button></li>
   <li class="nav-item"><button class="nav-link ms-1" data-view="pcs">Spotřeba (ks)</button></li>
-  <li class="nav-item"><button class="nav-link ms-1" data-view="cost">Náklady (Kč)</button></li>
 </ul>
 
 {% set col_months = range(1, 13) %}
@@ -34,8 +157,11 @@
           {% set month_abbr = ["","Led","Úno","Bře","Dub","Kvě","Čvn","Čvc","Srp","Zář","Říj","Lis","Pro"] %}
           {% for m in col_months %}
             <th class="month-col">
-              {{ month_abbr[m] }}
-              <span class="month-num">{{ m }}</span>
+              <a href="{{ url_for('history', year=year, month=m) }}"
+                 class="text-decoration-none" style="color:inherit">
+                {{ month_abbr[m] }}
+                <span class="month-num">{{ m }}</span>
+              </a>
             </th>
           {% endfor %}
           <th class="text-center" style="min-width:90px">Rok celkem</th>
@@ -63,9 +189,10 @@
               data-kg="{{ c.weight_kg if c.has_inventory else '' }}"
               data-pcs="{{ c.consumption if c.has_inventory else '' }}">
             {% if c.has_inventory and c.consumption is not none %}
-              <span class="view-kg">{{ c.weight_kg | round(2) }}</span>
-              <span class="view-pcs d-none">{{ c.consumption }}</span>
-              <span class="view-cost d-none">–</span>
+              <a href="{{ url_for('history', year=year, month=m) }}" class="text-decoration-none text-dark">
+                <span class="view-kg">{{ c.weight_kg | round(2) }}</span>
+                <span class="view-pcs d-none">{{ c.consumption }}</span>
+              </a>
             {% elif m <= today.month or year < today.year %}
               <span class="text-danger small"><i class="bi bi-dash-circle"></i></span>
             {% else %}
@@ -76,7 +203,6 @@
           <td class="text-center fw-semibold">
             <span class="view-kg">{{ year_total_kg.v | round(2) }}</span>
             <span class="view-pcs d-none">{{ year_total_pcs.v }}</span>
-            <span class="view-cost d-none">–</span>
           </td>
         </tr>
         {% endif %}
@@ -88,23 +214,23 @@
           {% set grand_total_kg = namespace(v=0) %}
           {% for m in col_months %}
           {% set month_kg = namespace(v=0) %}
+          {% set month_pcs = namespace(v=0) %}
           {% for mid, entry in data.items() %}
             {% set c = entry.months[m] %}
             {% if c.has_inventory %}
               {% set _ = month_kg.__setattr__('v', month_kg.v + (c.weight_kg or 0)) %}
+              {% set _ = month_pcs.__setattr__('v', month_pcs.v + (c.consumption or 0)) %}
               {% set _ = grand_total_kg.__setattr__('v', grand_total_kg.v + (c.weight_kg or 0)) %}
             {% endif %}
           {% endfor %}
           <td class="text-center">
             <span class="view-kg">{{ month_kg.v | round(1) }}</span>
-            <span class="view-pcs d-none">–</span>
-            <span class="view-cost d-none">–</span>
+            <span class="view-pcs d-none">{{ month_pcs.v }}</span>
           </td>
           {% endfor %}
           <td class="text-center">
             <span class="view-kg">{{ grand_total_kg.v | round(1) }} kg</span>
             <span class="view-pcs d-none">–</span>
-            <span class="view-cost d-none">–</span>
           </td>
         </tr>
       </tfoot>
@@ -114,19 +240,20 @@
 
 <p class="text-muted small mt-2">
   <i class="bi bi-dash-circle text-danger"></i> = Chybí inventura &nbsp;|&nbsp;
-  · = budoucí měsíc
+  · = budoucí měsíc &nbsp;|&nbsp;
+  Klikněte na hodnotu nebo název měsíce pro detail.
 </p>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
-const today = new Date();
 document.querySelectorAll("[data-view]").forEach(btn => {
   btn.addEventListener("click", function() {
     const view = this.dataset.view;
     document.querySelectorAll("[data-view]").forEach(b => b.classList.remove("active"));
     this.classList.add("active");
-    document.querySelectorAll(".view-kg, .view-pcs, .view-cost").forEach(el => el.classList.add("d-none"));
+    document.querySelectorAll(".view-kg, .view-pcs").forEach(el => el.classList.add("d-none"));
     document.querySelectorAll(".view-" + view).forEach(el => el.classList.remove("d-none"));
   });
 });
