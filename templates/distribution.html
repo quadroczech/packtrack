@@ -228,8 +228,12 @@ document.addEventListener("click", e => {
 });
 
 document.getElementById("addCountryRow").addEventListener("click", function() {
-  const tpl   = document.getElementById("rowTemplate").content.cloneNode(true);
+  const tpl = document.getElementById("rowTemplate").content.cloneNode(true);
   document.getElementById("countryRows").appendChild(tpl);
+  // Ihned nastav vlajku pro výchozí hodnotu selectu (jinak CZ zůstane bez vlajky)
+  const newRow = document.getElementById("countryRows").lastElementChild;
+  const sel = newRow.querySelector(".country-code-sel");
+  if (sel) updateFlag(sel);
   recalcTotal();
 });
 </script>
