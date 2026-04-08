@@ -2,14 +2,30 @@
 import os
 import psycopg2
 import psycopg2.extras
+import psycopg2.pool
 from contextlib import contextmanager
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
+# ── Connection pool – reuses connections instead of opening a new one per request
+_pool: psycopg2.pool.ThreadedConnectionPool | None = None
+
+
+def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
+    global _pool
+    if _pool is None:
+        _pool = psycopg2.pool.ThreadedConnectionPool(
+            minconn=1,
+            maxconn=5,
+            dsn=DATABASE_URL,
+        )
+    return _pool
+
 
 @contextmanager
 def get_conn():
-    conn = psycopg2.connect(DATABASE_URL)
+    pool = _get_pool()
+    conn = pool.getconn()
     try:
         yield conn
         conn.commit()
@@ -17,7 +33,7 @@ def get_conn():
         conn.rollback()
         raise
     finally:
-        conn.close()
+        pool.putconn(conn)
 
 
 def init_db():

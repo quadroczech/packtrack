@@ -33,6 +33,14 @@ def _quarter_of(month):
     return (month - 1) // 3 + 1
 
 
+# ── Health / keep-alive ───────────────────────────────────────────────────────
+
+@app.route("/ping")
+def ping():
+    """Lightweight keep-alive endpoint – called by UptimeRobot / cron."""
+    return "pong", 200
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
 @app.route("/")
