@@ -156,6 +156,7 @@ def _material_from_form():
         "include_in_reports": "include_in_reports" in f,
         "material_type":      f.get("material_type", "packaging"),
         "report_country":     f.get("report_country", "") or None,
+        "price_per_unit":     float(f["price_per_unit"]) if f.get("price_per_unit") else None,
     }
 
 

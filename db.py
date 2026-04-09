@@ -129,6 +129,10 @@ def init_db():
             ALTER TABLE pt_materials
             ADD COLUMN IF NOT EXISTS report_country VARCHAR(5) DEFAULT NULL
         """)
+        cur.execute("""
+            ALTER TABLE pt_materials
+            ADD COLUMN IF NOT EXISTS price_per_unit NUMERIC(10,4) DEFAULT NULL
+        """)
 
 
 # ── Settings ─────────────────────────────────────────────────────────────────
@@ -197,13 +201,14 @@ def create_material(data: dict):
                 (name, description, weight_g, supplier,
                  ekokom_sheet, ekokom_material, ekokom_form, ekokom_origin,
                  naturpack_material, naturpack_appendix,
-                 notes, initial_stock, include_in_reports, material_type, report_country)
+                 notes, initial_stock, include_in_reports, material_type, report_country,
+                 price_per_unit)
             VALUES
                 (%(name)s, %(description)s, %(weight_g)s, %(supplier)s,
                  %(ekokom_sheet)s, %(ekokom_material)s, %(ekokom_form)s, %(ekokom_origin)s,
                  %(naturpack_material)s, %(naturpack_appendix)s,
                  %(notes)s, %(initial_stock)s, %(include_in_reports)s, %(material_type)s,
-                 %(report_country)s)
+                 %(report_country)s, %(price_per_unit)s)
             RETURNING id
         """, data)
         return cur.fetchone()[0]
@@ -223,7 +228,8 @@ def update_material(material_id, data: dict):
                 notes=%(notes)s, initial_stock=%(initial_stock)s,
                 include_in_reports=%(include_in_reports)s,
                 material_type=%(material_type)s,
-                report_country=%(report_country)s
+                report_country=%(report_country)s,
+                price_per_unit=%(price_per_unit)s
             WHERE id=%(id)s
         """, {**data, "id": material_id})
 
@@ -368,9 +374,11 @@ def upsert_inventory(material_id, year, month, closing_stock, notes=""):
 
 def get_avg_prices_all():
     """Weighted average purchase price per unit across all receipts.
-    Returns {material_id: avg_price_czk}. Materials without price data are omitted."""
+    Falls back to material's own price_per_unit if no receipt prices exist.
+    Returns {material_id: price_czk}."""
     with get_conn() as conn:
         cur = conn.cursor()
+        # 1) receipt-based weighted average (highest priority)
         cur.execute("""
             SELECT material_id,
                    SUM(price_per_unit * quantity_pcs)::float / SUM(quantity_pcs)
@@ -378,7 +386,16 @@ def get_avg_prices_all():
             WHERE price_per_unit IS NOT NULL
             GROUP BY material_id
         """)
-        return {r[0]: float(r[1]) for r in cur.fetchall()}
+        prices = {r[0]: float(r[1]) for r in cur.fetchall()}
+        # 2) fallback: material's own price_per_unit for those not covered above
+        cur.execute("""
+            SELECT id, price_per_unit
+            FROM pt_materials
+            WHERE price_per_unit IS NOT NULL AND id != ALL(%s)
+        """, (list(prices.keys()) or [0],))
+        for mid, p in cur.fetchall():
+            prices[mid] = float(p)
+        return prices
 
 
 def get_distinct_suppliers():

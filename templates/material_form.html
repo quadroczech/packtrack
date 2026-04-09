@@ -36,6 +36,16 @@
           <div class="form-text">Váha jednoho kusu v kilogramech – nutné pro výpočet tun v reportech.</div>
         </div>
         <div class="col-sm-4">
+          <label class="form-label">Výchozí cena / ks (Kč)</label>
+          <div class="input-group">
+            <input type="number" name="price_per_unit" class="form-control" step="0.0001" min="0"
+                   value="{{ '%.4f' | format(material.price_per_unit | float) if material and material.price_per_unit else '' }}"
+                   placeholder="0.0000">
+            <span class="input-group-text">Kč/ks</span>
+          </div>
+          <div class="form-text">Slouží pro výpočet nákladů v historii spotřeby. Příjmy s cenou mají přednost.</div>
+        </div>
+        <div class="col-sm-4">
           <label class="form-label">Dodavatel</label>
           <input type="text" name="supplier" class="form-control"
                  value="{{ material.supplier if material else '' }}"
