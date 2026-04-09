@@ -8,6 +8,7 @@ and returns the file as a BytesIO stream.
 import os
 from io import BytesIO
 import openpyxl
+from openpyxl.cell.cell import MergedCell
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "ekokom_template.xlsx")
 
@@ -46,10 +47,13 @@ SIMPLE_ROWS      = list(range(9, 25))
 
 
 def _clear_sheet(ws, rows, cols):
-    """Set specified cells to None, leaving formula cells untouched."""
+    """Set specified cells to None, leaving formula cells and merged cells untouched."""
     for r in rows:
         for c in cols:
             cell = ws.cell(row=r, column=c)
+            # Skip non-master merged cells (read-only in openpyxl)
+            if isinstance(cell, MergedCell):
+                continue
             # Skip formula cells – value starts with '='
             if isinstance(cell.value, str) and cell.value.startswith("="):
                 continue

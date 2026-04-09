@@ -58,12 +58,21 @@
       </thead>
       <tbody>
         {% set grand_total_kg = namespace(v=0) %}
+        {% set grand_cz_kg = namespace(v=0) %}
         {% set grand_cz_t = namespace(v=0) %}
         {% for mid, entry in consumption.items() %}
         {% set m = entry.material %}
-        {% if m.ekokom_material and entry.total_pcs != 0 %}
-        {% set cz_t = entry.total_t * cz_pct / 100 %}
+        {% set m_rc = m.get('report_country') %}
+        {% if m.ekokom_material and entry.total_pcs != 0 and (m_rc is none or m_rc == 'CZ') %}
+        {% if m_rc == 'CZ' %}
+          {% set cz_t = entry.total_t %}
+          {% set cz_kg = entry.total_kg %}
+        {% else %}
+          {% set cz_t = entry.total_t * cz_pct / 100 %}
+          {% set cz_kg = entry.total_kg * cz_pct / 100 %}
+        {% endif %}
         {% set grand_total_kg.v = grand_total_kg.v + entry.total_kg %}
+        {% set grand_cz_kg.v = grand_cz_kg.v + cz_kg %}
         {% set grand_cz_t.v = grand_cz_t.v + cz_t %}
         <tr>
           <td class="fw-semibold">{{ m.name }}</td>
@@ -76,7 +85,7 @@
             <small class="text-muted">{{ form_label.get(m.ekokom_form, m.ekokom_form) }}</small>
           </td>
           <td class="text-end">{{ entry.total_kg | round(3) }} kg</td>
-          <td class="text-end text-muted">{{ (entry.total_kg * cz_pct / 100) | round(3) }} kg</td>
+          <td class="text-end text-muted">{{ cz_kg | round(3) }} kg</td>
           <td class="text-end fw-semibold text-primary">
             {{ "%.6f" | format(cz_t) }} t
           </td>
@@ -88,7 +97,7 @@
         <tr>
           <td colspan="3">CELKEM</td>
           <td class="text-end">{{ grand_total_kg.v | round(3) }} kg</td>
-          <td class="text-end text-muted">{{ (grand_total_kg.v * cz_pct / 100) | round(3) }} kg</td>
+          <td class="text-end text-muted">{{ grand_cz_kg.v | round(3) }} kg</td>
           <td class="text-end text-primary">{{ "%.6f" | format(grand_cz_t.v) }} t</td>
         </tr>
       </tfoot>
@@ -154,7 +163,9 @@
       <tbody>
         {% for mid, entry in consumption.items() %}
         {% set mat = entry.material %}
-        {% if mat.ekokom_material %}
+        {% set mat_rc = mat.get('report_country') %}
+        {% if mat.ekokom_material and (mat_rc is none or mat_rc == 'CZ') %}
+        {% set detail_cz_t = entry.total_t if mat_rc == 'CZ' else entry.total_t * cz_pct / 100 %}
         <tr>
           <td>{{ mat.name }}</td>
           {% set q_kg = namespace(v=0) %}
@@ -167,7 +178,7 @@
           {% endfor %}
           <td class="text-end">{{ entry.total_kg | round(3) }} kg</td>
           <td class="text-end fw-semibold text-primary">
-            {{ "%.4f" | format(entry.total_t * cz_pct / 100) }} t
+            {{ "%.4f" | format(detail_cz_t) }} t
           </td>
         </tr>
         {% endif %}
