@@ -87,6 +87,7 @@ def material_add():
                            naturpack_mats=reports.NATURPACK_MATERIALS,
                            naturpack_apps=reports.NATURPACK_APPENDICES,
                            material_types=MATERIAL_TYPES,
+                           countries=COUNTRIES,
                            action=url_for("material_add"))
 
 
@@ -110,6 +111,7 @@ def material_edit(mid):
                            naturpack_mats=reports.NATURPACK_MATERIALS,
                            naturpack_apps=reports.NATURPACK_APPENDICES,
                            material_types=MATERIAL_TYPES,
+                           countries=COUNTRIES,
                            action=url_for("material_edit", mid=mid))
 
 
@@ -153,6 +155,7 @@ def _material_from_form():
         "initial_stock":      int(f.get("initial_stock") or 0),
         "include_in_reports": "include_in_reports" in f,
         "material_type":      f.get("material_type", "packaging"),
+        "report_country":     f.get("report_country", "") or None,
     }
 
 

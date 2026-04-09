@@ -214,19 +214,40 @@
     </div>
   </div>
 
-  <!-- Reporting flag -->
+  <!-- Reporting flag + country pin -->
   <div class="card card-flat mb-4">
-    <div class="card-body py-3">
-      <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" name="include_in_reports"
-               id="includeInReports" role="switch"
-               {% if material is none or material.get('include_in_reports', True) %}checked{% endif %}>
-        <label class="form-check-label fw-semibold" for="includeInReports">
-          Zahrnout do EKO-KOM a NATUR-PACK výkazů
-        </label>
-        <div class="form-text">
-          Vypněte pro materiály, které nespadají do povinného hlášení
-          (např. interní spotřeba, marketingové předměty).
+    <div class="card-header-flat"><i class="bi bi-flag me-2"></i>Hlášení do výkazů</div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="include_in_reports"
+                   id="includeInReports" role="switch"
+                   {% if material is none or material.get('include_in_reports', True) %}checked{% endif %}>
+            <label class="form-check-label fw-semibold" for="includeInReports">
+              Zahrnout do výkazů (EKO-KOM / NATUR-PACK)
+            </label>
+            <div class="form-text">
+              Vypněte pro materiály, které nespadají do žádného povinného hlášení.
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label fw-semibold">Přiřadit výhradně jedné zemi</label>
+          <select name="report_country" class="form-select">
+            <option value="">— Podle distribuce tržeb (výchozí) —</option>
+            {% for code, name in countries %}
+              <option value="{{ code }}"
+                {% if material and material.get('report_country') == code %}selected{% endif %}>
+                {{ name }} ({{ code }})
+              </option>
+            {% endfor %}
+          </select>
+          <div class="form-text">
+            Pokud zvolíte zemi, <strong>100&nbsp;% spotřeby</strong> tohoto materiálu
+            půjde jen do výkazu té země (ignoruje globální distribuci).
+            Např. leták CZ → vyberte Česká republika → jde celý do EKO-KOM.
+          </div>
         </div>
       </div>
     </div>

@@ -134,7 +134,13 @@
             </td>
             <td class="text-center">
               {% if m.get('include_in_reports', True) %}
-                <i class="bi bi-check-circle-fill text-success" title="Zahrnuto ve výkazech"></i>
+                {% if m.get('report_country') %}
+                  <img src="https://flagcdn.com/16x12/{{ m.report_country | lower }}.png"
+                       title="Výhradně {{ m.report_country }}" class="me-1">
+                  <small class="text-muted">{{ m.report_country }}</small>
+                {% else %}
+                  <i class="bi bi-check-circle-fill text-success" title="Zahrnuto – podle distribuce"></i>
+                {% endif %}
               {% else %}
                 <i class="bi bi-dash-circle text-muted" title="Nezahrnuto ve výkazech"></i>
               {% endif %}

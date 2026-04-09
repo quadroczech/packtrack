@@ -273,7 +273,14 @@ def build_ekokom_data(year, quarter):
         if not m.get("include_in_reports", True):
             continue
         weight_t_total = entry["total_t"]
-        weight_t_cz = round(weight_t_total * cz_pct, 6)
+        rc = m.get("report_country")
+        # If material is pinned to a specific country, only count it for CZ
+        if rc is None:
+            weight_t_cz = round(weight_t_total * cz_pct, 6)
+        elif rc == "CZ":
+            weight_t_cz = round(weight_t_total, 6)
+        else:
+            continue  # pinned to another country, skip EKO-KOM
 
         sheet = m.get("ekokom_sheet", "J1-1A")
         row = _ekokom_row(m)
@@ -350,7 +357,13 @@ def build_naturpack_data(year, quarter):
         if not m.get("include_in_reports", True):
             continue
         appendix = m.get("naturpack_appendix", "consumer")
-        weight_t_sk = round(entry["total_t"] * sk_pct, 6)
+        rc = m.get("report_country")
+        if rc is None:
+            weight_t_sk = round(entry["total_t"] * sk_pct, 6)
+        elif rc == "SK":
+            weight_t_sk = round(entry["total_t"], 6)
+        else:
+            continue  # pinned to another country, skip NATUR-PACK
         key = (appendix, np_mat)
         data[key] = round(data.get(key, 0) + weight_t_sk, 6)
     return data

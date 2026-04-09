@@ -125,6 +125,10 @@ def init_db():
             ALTER TABLE pt_materials
             ADD COLUMN IF NOT EXISTS material_type VARCHAR(30) DEFAULT 'packaging'
         """)
+        cur.execute("""
+            ALTER TABLE pt_materials
+            ADD COLUMN IF NOT EXISTS report_country VARCHAR(5) DEFAULT NULL
+        """)
 
 
 # ── Settings ─────────────────────────────────────────────────────────────────
@@ -193,12 +197,13 @@ def create_material(data: dict):
                 (name, description, weight_g, supplier,
                  ekokom_sheet, ekokom_material, ekokom_form, ekokom_origin,
                  naturpack_material, naturpack_appendix,
-                 notes, initial_stock, include_in_reports, material_type)
+                 notes, initial_stock, include_in_reports, material_type, report_country)
             VALUES
                 (%(name)s, %(description)s, %(weight_g)s, %(supplier)s,
                  %(ekokom_sheet)s, %(ekokom_material)s, %(ekokom_form)s, %(ekokom_origin)s,
                  %(naturpack_material)s, %(naturpack_appendix)s,
-                 %(notes)s, %(initial_stock)s, %(include_in_reports)s, %(material_type)s)
+                 %(notes)s, %(initial_stock)s, %(include_in_reports)s, %(material_type)s,
+                 %(report_country)s)
             RETURNING id
         """, data)
         return cur.fetchone()[0]
@@ -217,7 +222,8 @@ def update_material(material_id, data: dict):
                 naturpack_appendix=%(naturpack_appendix)s,
                 notes=%(notes)s, initial_stock=%(initial_stock)s,
                 include_in_reports=%(include_in_reports)s,
-                material_type=%(material_type)s
+                material_type=%(material_type)s,
+                report_country=%(report_country)s
             WHERE id=%(id)s
         """, {**data, "id": material_id})
 
