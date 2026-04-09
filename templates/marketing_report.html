@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Marketing – přehled letáků{% endblock %}
+{% block page_title %}Marketing – přehled letáků{% endblock %}
+{% block breadcrumb %}Analýza /{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+  <div>
+    <p class="text-muted mb-0">
+      Stav skladu marketingových materiálů (letáky, katalogy apod.).
+      Data vychází z poslední zadané inventury a průměrné spotřeby za poslední 3 měsíce.
+    </p>
+  </div>
+  <a href="{{ url_for('materials_list') }}?material_type=marketing"
+     class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-tags me-1"></i>Spravovat materiály
+  </a>
+</div>
+
+{% if not report %}
+<div class="alert alert-info">
+  <i class="bi bi-info-circle me-2"></i>
+  Žádné materiály s typem <strong>Marketingové</strong> nebyly nalezeny.
+  <a href="{{ url_for('material_add') }}" class="ms-2">Přidat materiál →</a>
+</div>
+{% else %}
+
+<!-- Summary badges -->
+{% set n_critical = report | selectattr('status','eq','critical') | list | length %}
+{% set n_warning  = report | selectattr('status','eq','warning')  | list | length %}
+{% set n_ok       = report | selectattr('status','eq','ok')       | list | length %}
+<div class="d-flex gap-2 mb-4 flex-wrap">
+  {% if n_critical %}
+    <span class="badge bg-danger fs-6 px-3 py-2">
+      <i class="bi bi-exclamation-triangle me-1"></i>Kritické: {{ n_critical }}
+    </span>
+  {% endif %}
+  {% if n_warning %}
+    <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+      <i class="bi bi-exclamation-circle me-1"></i>Varování: {{ n_warning }}
+    </span>
+  {% endif %}
+  {% if n_ok %}
+    <span class="badge bg-success fs-6 px-3 py-2">
+      <i class="bi bi-check-circle me-1"></i>V pořádku: {{ n_ok }}
+    </span>
+  {% endif %}
+</div>
+
+<div class="card card-flat">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th style="min-width:200px">Materiál</th>
+          <th class="text-end">Aktuální sklad (ks)</th>
+          <th class="text-end">Ø spotřeba / měsíc (ks)</th>
+          <th class="text-center">Zásoby na (měs.)</th>
+          <th class="text-center">Stav</th>
+          <th class="text-end">Cena / ks</th>
+          <th class="text-end">Hodnota skladu</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in report %}
+        {% set m = row.material %}
+        <tr class="{% if row.status == 'critical' %}table-danger{% elif row.status == 'warning' %}table-warning{% endif %}">
+          <td>
+            <span class="fw-semibold">{{ m.name }}</span>
+            {% if m.description %}
+              <br><small class="text-muted">{{ m.description }}</small>
+            {% endif %}
+            {% if m.supplier %}
+              <br><small class="text-muted"><i class="bi bi-truck me-1"></i>{{ m.supplier }}</small>
+            {% endif %}
+          </td>
+          <td class="text-end fw-semibold fs-5">
+            {{ "{:,}".format(row.current_stock) }}
+          </td>
+          <td class="text-end text-muted">
+            {% if row.avg_monthly is not none %}
+              {{ "{:,}".format(row.avg_monthly) }}
+            {% else %}
+              <span class="text-muted">–</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if row.months_remaining is not none %}
+              {% if row.months_remaining < 1 %}
+                <span class="fw-bold text-danger">{{ row.months_remaining }}</span>
+              {% elif row.months_remaining < 2 %}
+                <span class="fw-bold text-warning">{{ row.months_remaining }}</span>
+              {% else %}
+                <span class="fw-semibold text-success">{{ row.months_remaining }}</span>
+              {% endif %}
+            {% else %}
+              <span class="text-muted">–</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if row.status == 'critical' %}
+              <span class="badge bg-danger px-2 py-1">
+                <i class="bi bi-exclamation-triangle me-1"></i>Kritické
+              </span>
+            {% elif row.status == 'warning' %}
+              <span class="badge bg-warning text-dark px-2 py-1">
+                <i class="bi bi-exclamation-circle me-1"></i>Objednat!
+              </span>
+            {% elif row.status == 'ok' %}
+              <span class="badge bg-success px-2 py-1">
+                <i class="bi bi-check-lg me-1"></i>OK
+              </span>
+            {% else %}
+              <span class="badge bg-secondary px-2 py-1">Bez dat</span>
+            {% endif %}
+          </td>
+          <td class="text-end text-muted small">
+            {% if row.price %}{{ "%.4f" | format(row.price) }} Kč{% else %}–{% endif %}
+          </td>
+          <td class="text-end fw-semibold">
+            {% if row.price and row.current_stock %}
+              {{ "{:,.0f}".format(row.current_stock * row.price) }} Kč
+            {% else %}–{% endif %}
+          </td>
+          <td class="text-end">
+            <a href="{{ url_for('material_edit', mid=m.id) }}"
+               class="btn btn-sm btn-outline-secondary" title="Upravit">
+              <i class="bi bi-pencil"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-semibold">
+        <tr>
+          <td colspan="6">CELKEM hodnota skladu</td>
+          <td class="text-end">
+            {% set ns_val = namespace(v=0) %}
+            {% for row in report %}
+              {% if row.price and row.current_stock %}
+                {% set ns_val.v = ns_val.v + row.current_stock * row.price %}
+              {% endif %}
+            {% endfor %}
+            {% if ns_val.v > 0 %}{{ "{:,.0f}".format(ns_val.v) }} Kč{% else %}–{% endif %}
+          </td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<div class="mt-3 text-muted small">
+  <i class="bi bi-info-circle me-1"></i>
+  Zásoby jsou vypočítány jako: <em>aktuální sklad ÷ průměrná měsíční spotřeba</em>
+  (průměr posledních 3 měsíců s dostupnou inventurou).
+  <strong>Varování</strong> = méně než 2 měsíce, <strong>Kritické</strong> = méně než 1 měsíc.
+</div>
+{% endif %}
+{% endblock %}

@@ -16,10 +16,34 @@
   </div>
   <div class="col-sm-6 col-xl-3">
     <div class="stat-card">
-      <div class="stat-icon bg-success-soft text-success"><i class="bi bi-graph-down-arrow"></i></div>
-      <div>
-        <div class="stat-value">{{ stats.cur_kg | round(1) }} kg</div>
-        <div class="stat-label">Spotřeba {{ stats.month_name }} {{ stats.cur_year }}</div>
+      <div class="stat-icon bg-success-soft text-success"><i class="bi bi-currency-exchange"></i></div>
+      <div style="width:100%">
+        <div class="stat-value">
+          {% if stats.cur_cost > 0 %}
+            {{ "{:,.0f}".format(stats.cur_cost) }} Kč
+          {% else %}
+            — Kč
+          {% endif %}
+        </div>
+        <div class="stat-label d-flex align-items-center gap-2 flex-wrap">
+          <span>Náklady {{ stats.month_name }}</span>
+          {% if stats.cost_pct is not none %}
+            {% if stats.cost_pct <= 0 %}
+              <span class="badge bg-success-soft text-success border border-success" style="font-size:.75rem">
+                <i class="bi bi-arrow-down-short"></i>{{ stats.cost_pct | abs }}%
+              </span>
+            {% else %}
+              <span class="badge bg-danger-soft text-danger border border-danger" style="font-size:.75rem">
+                <i class="bi bi-arrow-up-short"></i>{{ stats.cost_pct }}%
+              </span>
+            {% endif %}
+          {% endif %}
+        </div>
+        {% if stats.prev_cost > 0 %}
+          <div class="text-muted" style="font-size:.78rem;margin-top:2px;">
+            vs. {{ stats.prev_month_name }}: {{ "{:,.0f}".format(stats.prev_cost) }} Kč
+          </div>
+        {% endif %}
       </div>
     </div>
   </div>

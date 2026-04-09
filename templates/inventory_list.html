@@ -37,6 +37,13 @@
         {% endif %}
       </div>
       <div class="month-card-body">
+        {% set m_cost = monthly_costs.get(month) %}
+        {% if m_cost %}
+          <div class="text-muted small mb-2" style="font-size:.8rem;">
+            <i class="bi bi-cash-stack me-1"></i>
+            <strong class="text-dark">{{ "{:,.0f}".format(m_cost) }} Kč</strong>
+          </div>
+        {% endif %}
         {% if not is_future %}
           <a href="{{ url_for('inventory_entry', year=year, month=month) }}"
              class="btn btn-sm {% if is_done %}btn-outline-success{% elif is_current %}btn-primary{% else %}btn-danger{% endif %} w-100">

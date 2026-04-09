@@ -1,0 +1,26 @@
+name: Monthly Inventory Reminder
+
+on:
+  # 23rd of each month at 08:00 UTC = 09:00 CET / 10:00 CEST
+  schedule:
+    - cron: '0 8 23 * *'
+  # Allow manual trigger from GitHub Actions tab
+  workflow_dispatch:
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send inventory reminder email
+        run: |
+          RESPONSE=$(curl -sf -w "\nHTTP_STATUS:%{http_code}" \
+            "https://packtrack-vsf7.onrender.com/api/remind?token=${{ secrets.REMINDER_TOKEN }}" \
+            2>&1) || true
+          echo "Response: $RESPONSE"
+          HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Reminder sent successfully"
+          else
+            echo "⚠️ Reminder endpoint returned: $HTTP_CODE"
+            echo "Check REMINDER_TOKEN secret and MAIL_FROM / MAIL_PASS env vars in Render"
+          fi

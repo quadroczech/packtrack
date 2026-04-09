@@ -378,6 +378,7 @@ def get_dashboard_stats():
 
     materials = db.get_materials(active_only=True)
     n_active = len(materials)
+    avg_prices = db.get_avg_prices_all()
 
     # Bulk fetch for current year (covers current + previous month if same year)
     inv      = db.get_inventory_for_year(year)
@@ -388,22 +389,26 @@ def get_dashboard_stats():
     if prev_year != year:
         prev_year_inv      = db.get_inventory_for_year(prev_year)
         prev_year_receipts = db.get_receipts_totals_for_year(prev_year)
-        prev_year_prev_inv = prev_inv  # year-2 approx, good enough for dashboard
+        prev_year_prev_inv = prev_inv
     else:
         prev_year_inv      = inv
         prev_year_receipts = receipts
         prev_year_prev_inv = prev_inv
 
-    cur_kg = sum(
-        _consumption_from_bulk(m, year, month, inv, receipts, prev_inv).get("weight_kg", 0) or 0
-        for m in materials
-    )
-    prev_kg = sum(
-        _consumption_from_bulk(m, prev_year, prev_month,
-                               prev_year_inv, prev_year_receipts, prev_year_prev_inv
-                               ).get("weight_kg", 0) or 0
-        for m in materials
-    )
+    cur_kg = cur_cost = prev_kg = prev_cost = 0.0
+    for m in materials:
+        mid = m["id"]
+        price = avg_prices.get(mid, 0) or 0
+        c_cur = _consumption_from_bulk(m, year, month, inv, receipts, prev_inv)
+        cur_kg   += c_cur.get("weight_kg", 0) or 0
+        cur_cost += (c_cur.get("consumption") or 0) * price
+        c_prev = _consumption_from_bulk(m, prev_year, prev_month,
+                                        prev_year_inv, prev_year_receipts, prev_year_prev_inv)
+        prev_kg   += c_prev.get("weight_kg", 0) or 0
+        prev_cost += (c_prev.get("consumption") or 0) * price
+
+    cost_pct = (round((cur_cost - prev_cost) / prev_cost * 100, 1)
+                if prev_cost > 0 else None)
 
     # Receipt count this month
     receipts_list = db.get_receipts(year=year, month=month)
@@ -417,9 +422,116 @@ def get_dashboard_stats():
         "n_active": n_active,
         "cur_month": month,
         "cur_year": year,
-        "cur_kg": round(cur_kg, 2),
-        "prev_kg": round(prev_kg, 2),
+        "cur_kg":   round(cur_kg, 2),
+        "prev_kg":  round(prev_kg, 2),
+        "cur_cost":  round(cur_cost, 0),
+        "prev_cost": round(prev_cost, 0),
+        "cost_pct":  cost_pct,
+        "prev_month": prev_month,
         "n_receipts_this_month": n_receipts,
         "missing_inventory_months": missing,
-        "month_name": MONTHS_CZ[month],
+        "month_name":      MONTHS_CZ[month],
+        "prev_month_name": MONTHS_CZ[prev_month],
     }
+
+
+def get_monthly_costs(year):
+    """Total cost of consumed materials per month: {month: czk or None}."""
+    materials  = db.get_materials(active_only=False)
+    avg_prices = db.get_avg_prices_all()
+    inv        = db.get_inventory_for_year(year)
+    receipts   = db.get_receipts_totals_for_year(year)
+    prev_inv   = db.get_inventory_for_year(year - 1)
+
+    result = {}
+    for month in range(1, 13):
+        total = 0.0
+        has_any = False
+        for m in materials:
+            price = avg_prices.get(m["id"], 0) or 0
+            if not price:
+                continue
+            c = _consumption_from_bulk(m, year, month, inv, receipts, prev_inv)
+            if c["has_inventory"] and (c["consumption"] or 0) > 0:
+                total += c["consumption"] * price
+                has_any = True
+        result[month] = round(total, 0) if has_any else None
+    return result
+
+
+def get_marketing_report():
+    """Stock-level overview for marketing-type materials, sorted by urgency."""
+    today = date.today()
+    year, month = today.year, today.month
+
+    materials = db.get_materials(material_type="marketing")
+    if not materials:
+        return []
+
+    avg_prices = db.get_avg_prices_all()
+    inv      = db.get_inventory_for_year(year)
+    receipts = db.get_receipts_totals_for_year(year)
+    prev_inv = db.get_inventory_for_year(year - 1)
+    prev2_inv    = db.get_inventory_for_year(year - 2)
+    prev_receipts = db.get_receipts_totals_for_year(year - 1)
+
+    report = []
+    for m in materials:
+        mid = m["id"]
+
+        # Latest closing stock (search backwards up to current month)
+        current_stock = None
+        for mo in range(month, 0, -1):
+            v = inv.get((mid, mo))
+            if v is not None:
+                current_stock = v
+                break
+        if current_stock is None:
+            current_stock = prev_inv.get((mid, 12)) or m.get("initial_stock") or 0
+
+        # Avg monthly consumption from last ≤3 months that have inventory
+        consumptions = []
+        for offset in range(6):
+            mo = month - offset
+            yi = year
+            if mo <= 0:
+                mo += 12
+                yi = year - 1
+            if yi == year:
+                c = _consumption_from_bulk(m, yi, mo, inv, receipts, prev_inv)
+            else:
+                c = _consumption_from_bulk(m, yi, mo, prev_inv, prev_receipts, prev2_inv)
+            if c["has_inventory"] and c["consumption"] is not None and c["consumption"] >= 0:
+                consumptions.append(c["consumption"])
+            if len(consumptions) >= 3:
+                break
+
+        avg_monthly = round(sum(consumptions) / len(consumptions)) if consumptions else None
+
+        months_remaining = None
+        if avg_monthly and avg_monthly > 0:
+            months_remaining = round(current_stock / avg_monthly, 1)
+
+        if current_stock == 0:
+            status = "critical"
+        elif months_remaining is None:
+            status = "unknown"
+        elif months_remaining < 1:
+            status = "critical"
+        elif months_remaining < 2:
+            status = "warning"
+        else:
+            status = "ok"
+
+        report.append({
+            "material":        dict(m),
+            "current_stock":   current_stock,
+            "avg_monthly":     avg_monthly,
+            "months_remaining": months_remaining,
+            "status":          status,
+            "price":           avg_prices.get(mid),
+        })
+
+    order = {"critical": 0, "warning": 1, "ok": 2, "unknown": 3}
+    report.sort(key=lambda x: (order.get(x["status"], 3), x["current_stock"] or 0))
+    return report

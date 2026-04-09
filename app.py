@@ -215,10 +215,12 @@ def inventory_list():
     years = db.get_available_years() or [date.today().year]
     if year not in years:
         years = sorted(set(years + [year]))
-    months_done = db.get_months_with_inventory(year)
+    months_done   = db.get_months_with_inventory(year)
+    monthly_costs = reports.get_monthly_costs(year)
     return render_template("inventory_list.html",
                            year=year, years=years,
                            months_done=months_done,
+                           monthly_costs=monthly_costs,
                            months_cz=MONTHS_CZ,
                            today=date.today())
 
@@ -489,6 +491,39 @@ def api_material_consumption(mid):
         return jsonify({"error": "not found"}), 404
     c = reports.calc_consumption(mat, year, month)
     return jsonify(c)
+
+
+@app.route("/api/remind")
+def api_remind():
+    """Send monthly inventory reminder email. Called by GitHub Actions cron."""
+    import os
+    token    = request.args.get("token", "")
+    expected = os.environ.get("REMINDER_TOKEN", "")
+    if not expected or token != expected:
+        return jsonify({"error": "unauthorized"}), 401
+    today = date.today()
+    try:
+        import send_email
+        send_email.send_inventory_reminder(
+            to_email="zastup.vedouci@gmail.com",
+            year=today.year,
+            month=today.month,
+            month_name=MONTHS_CZ[today.month],
+        )
+        return jsonify({"ok": True, "month": MONTHS_CZ[today.month]})
+    except Exception as e:
+        app.logger.error("Reminder email error: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+
+# ── Marketing analysis ────────────────────────────────────────────────────────
+
+@app.route("/analysis/marketing")
+def marketing_report():
+    report = reports.get_marketing_report()
+    return render_template("marketing_report.html",
+                           report=report,
+                           months_cz=MONTHS_CZ)
 
 
 # ── Template context processors ───────────────────────────────────────────────

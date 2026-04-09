@@ -52,6 +52,11 @@
         <i class="bi bi-receipt"></i> Historie příjmů
       </a>
     </li>
+    <li>
+      <a href="{{ url_for('marketing_report') }}" class="{% if request.endpoint == 'marketing_report' %}active{% endif %}">
+        <i class="bi bi-megaphone"></i> Marketing – letáky
+      </a>
+    </li>
 
     <li class="nav-section mt-2">Výkazy</li>
     <li>
