@@ -90,6 +90,71 @@
 </div>
 {% endif %}
 
+<!-- Low stock alerts -->
+{% if stock_alerts %}
+{% set n_crit = stock_alerts | selectattr('status','eq','critical') | list | length %}
+{% set n_warn = stock_alerts | selectattr('status','eq','warning')  | list | length %}
+<div class="card card-flat mb-4" style="border:1px solid {% if n_crit %}#fecaca{% else %}#fde68a{% endif %};">
+  <div class="card-header-flat d-flex align-items-center justify-content-between"
+       style="background:{% if n_crit %}#fef2f2{% else %}#fffbeb{% endif %};">
+    <span style="color:{% if n_crit %}#dc2626{% else %}#d97706{% endif %};font-weight:700;">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      Nízký stav skladu
+      {% if n_crit %}
+        <span class="badge bg-danger ms-1">{{ n_crit }} kritické</span>
+      {% endif %}
+      {% if n_warn %}
+        <span class="badge bg-warning text-dark ms-1">{{ n_warn }} varování</span>
+      {% endif %}
+    </span>
+    <a href="{{ url_for('materials_list') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-box-seam me-1"></i>Správa materiálů
+    </a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0" style="font-size:.9rem;">
+      <thead style="background:#f8fafc;">
+        <tr>
+          <th style="padding:8px 16px;">Materiál</th>
+          <th class="text-end" style="padding:8px 16px;">Sklad (ks)</th>
+          <th class="text-end" style="padding:8px 16px;">Ø spotřeba / měs.</th>
+          <th class="text-center" style="padding:8px 16px;">Zásoby na</th>
+          <th class="text-center" style="padding:8px 16px;">Stav</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in stock_alerts %}
+        {% set m = a.material %}
+        <tr class="{% if a.status == 'critical' %}table-danger{% elif a.status == 'warning' %}table-warning{% endif %}">
+          <td style="padding:8px 16px;font-weight:600;">{{ m.name }}</td>
+          <td class="text-end" style="padding:8px 16px;">{{ "{:,}".format(a.current_stock) }}</td>
+          <td class="text-end text-muted" style="padding:8px 16px;">~{{ "{:,}".format(a.avg_monthly) }} ks</td>
+          <td class="text-center" style="padding:8px 16px;">
+            {% if a.status == 'critical' %}
+              <span class="fw-bold text-danger">{{ a.months_remaining }} měs.</span>
+            {% else %}
+              <span class="fw-bold text-warning">{{ a.months_remaining }} měs.</span>
+            {% endif %}
+          </td>
+          <td class="text-center" style="padding:8px 16px;">
+            {% if a.status == 'critical' %}
+              <span class="badge bg-danger px-2 py-1">
+                <i class="bi bi-exclamation-triangle me-1"></i>Kritické
+              </span>
+            {% else %}
+              <span class="badge bg-warning text-dark px-2 py-1">
+                <i class="bi bi-exclamation-circle me-1"></i>Objednat!
+              </span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <!-- Quick actions -->
 <div class="row g-3 mb-4">
   <div class="col-12">

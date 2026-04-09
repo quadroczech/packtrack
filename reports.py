@@ -435,6 +435,82 @@ def get_dashboard_stats():
     }
 
 
+def get_low_stock_alerts():
+    """
+    Returns list of active materials with stock < 2 months of avg consumption.
+    Sorted: critical (< 1 month) first, then warning (1-2 months).
+    Only materials with at least 1 month of consumption history are included.
+    """
+    today = date.today()
+    year, month = today.year, today.month
+
+    materials     = db.get_materials(active_only=True)
+    inv           = db.get_inventory_for_year(year)
+    receipts      = db.get_receipts_totals_for_year(year)
+    prev_inv      = db.get_inventory_for_year(year - 1)
+    prev_receipts = db.get_receipts_totals_for_year(year - 1)
+    prev2_inv     = db.get_inventory_for_year(year - 2)
+
+    alerts = []
+    for m in materials:
+        mid = m["id"]
+
+        # Most recent closing stock
+        current_stock = None
+        for mo in range(month, 0, -1):
+            v = inv.get((mid, mo))
+            if v is not None:
+                current_stock = v
+                break
+        if current_stock is None:
+            current_stock = prev_inv.get((mid, 12)) or m.get("initial_stock") or 0
+
+        # Avg monthly consumption from last ≤3 months with data
+        consumptions = []
+        for offset in range(6):
+            mo = month - offset
+            yi = year
+            if mo <= 0:
+                mo += 12
+                yi = year - 1
+            if yi == year:
+                c = _consumption_from_bulk(m, yi, mo, inv, receipts, prev_inv)
+            else:
+                c = _consumption_from_bulk(m, yi, mo, prev_inv, prev_receipts, prev2_inv)
+            if c["has_inventory"] and c["consumption"] is not None and c["consumption"] >= 0:
+                consumptions.append(c["consumption"])
+            if len(consumptions) >= 3:
+                break
+
+        if not consumptions:
+            continue  # no history → can't estimate
+        avg_monthly = sum(consumptions) / len(consumptions)
+        if avg_monthly <= 0:
+            continue  # never consumed → no alert
+
+        months_remaining = current_stock / avg_monthly
+
+        if months_remaining < 1:
+            status = "critical"
+        elif months_remaining < 2:
+            status = "warning"
+        else:
+            continue  # enough stock, no alert
+
+        alerts.append({
+            "material":         dict(m),
+            "current_stock":    current_stock,
+            "avg_monthly":      round(avg_monthly),
+            "months_remaining": round(months_remaining, 1),
+            "status":           status,
+        })
+
+    # critical first, then by months_remaining ascending
+    alerts.sort(key=lambda x: (0 if x["status"] == "critical" else 1,
+                                x["months_remaining"]))
+    return alerts
+
+
 def get_monthly_costs(year):
     """Total cost of consumed materials per month: {month: czk or None}."""
     materials  = db.get_materials(active_only=False)

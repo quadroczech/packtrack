@@ -45,8 +45,10 @@ def ping():
 
 @app.route("/")
 def dashboard():
-    stats = reports.get_dashboard_stats()
+    stats        = reports.get_dashboard_stats()
+    stock_alerts = reports.get_low_stock_alerts()
     return render_template("dashboard.html", stats=stats,
+                           stock_alerts=stock_alerts,
                            months_cz=MONTHS_CZ)
 
 
@@ -493,24 +495,35 @@ def api_material_consumption(mid):
     return jsonify(c)
 
 
+REMINDER_RECIPIENTS = [
+    "zastup.vedouci@gmail.com",
+    "sklad.vedouci@oveckarna.cz",
+    "adam.fiala@oveckarna.cz",
+]
+
 @app.route("/api/remind")
 def api_remind():
-    """Send monthly inventory reminder email. Called by GitHub Actions cron."""
+    """Send monthly inventory reminder + low-stock alert email. Called by GitHub Actions cron."""
     import os
     token    = request.args.get("token", "")
     expected = os.environ.get("REMINDER_TOKEN", "")
     if not expected or token != expected:
         return jsonify({"error": "unauthorized"}), 401
-    today = date.today()
+    today        = date.today()
+    stock_alerts = reports.get_low_stock_alerts()
+    errors = []
     try:
         import send_email
-        send_email.send_inventory_reminder(
-            to_email="zastup.vedouci@gmail.com",
+        send_email.send_monthly_report(
+            recipients=REMINDER_RECIPIENTS,
             year=today.year,
             month=today.month,
             month_name=MONTHS_CZ[today.month],
+            stock_alerts=stock_alerts,
         )
-        return jsonify({"ok": True, "month": MONTHS_CZ[today.month]})
+        return jsonify({"ok": True, "month": MONTHS_CZ[today.month],
+                        "recipients": REMINDER_RECIPIENTS,
+                        "stock_alerts": len(stock_alerts)})
     except Exception as e:
         app.logger.error("Reminder email error: %s", e)
         return jsonify({"error": str(e)}), 500
