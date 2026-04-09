@@ -69,9 +69,9 @@
           {% set total_pcs = namespace(v=0) %}
           {% set total_cost = namespace(v=0) %}
           {% for r in receipts %}
-          {% set _ = total_pcs.__setattr__('v', total_pcs.v + r.quantity_pcs) %}
+          {% set total_pcs.v = total_pcs.v + r.quantity_pcs %}
           {% set cost = (r.price_per_unit * r.quantity_pcs) if r.price_per_unit else 0 %}
-          {% set _ = total_cost.__setattr__('v', total_cost.v + cost) %}
+          {% set total_cost.v = total_cost.v + cost %}
           <tr>
             <td class="text-nowrap">{{ r.receipt_date.strftime('%d.%m.%Y') if r.receipt_date else '–' }}</td>
             <td>

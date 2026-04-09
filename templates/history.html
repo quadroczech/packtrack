@@ -97,7 +97,7 @@
               {% else %}
                 <span class="text-muted">0</span>
               {% endif %}
-              {% set _ = grand_pcs.__setattr__('v', grand_pcs.v + c.consumption) %}
+              {% set grand_pcs.v = grand_pcs.v + c.consumption %}
             {% else %}
               <span class="text-muted">–</span>
             {% endif %}
@@ -105,7 +105,7 @@
           <td class="text-center fw-semibold">
             {% if c.has_inventory and c.consumption is not none %}
               {{ c.weight_kg | round(3) }} kg
-              {% set _ = grand_kg.__setattr__('v', grand_kg.v + (c.weight_kg or 0)) %}
+              {% set grand_kg.v = grand_kg.v + (c.weight_kg or 0) %}
             {% else %}
               <span class="text-muted">–</span>
             {% endif %}
@@ -116,7 +116,7 @@
               {% if avg_p %}
                 {% set cost = (c.consumption * avg_p) | round(2) %}
                 <span class="fw-semibold">{{ "%.0f"|format(cost) }} Kč</span>
-                {% set _ = grand_cost.__setattr__('v', grand_cost.v + cost) %}
+                {% set grand_cost.v = grand_cost.v + cost %}
               {% else %}
                 <span class="text-muted small">bez ceny</span>
               {% endif %}
@@ -204,10 +204,10 @@
           {% for m in col_months %}
           {% set c = entry.months[m] %}
           {% if c.has_inventory %}
-            {% set _ = year_total_kg.__setattr__('v', year_total_kg.v + (c.weight_kg or 0)) %}
-            {% set _ = year_total_pcs.__setattr__('v', year_total_pcs.v + (c.consumption or 0)) %}
+            {% set year_total_kg.v = year_total_kg.v + (c.weight_kg or 0) %}
+            {% set year_total_pcs.v = year_total_pcs.v + (c.consumption or 0) %}
             {% if avg_p and c.consumption %}
-              {% set _ = year_total_cost.__setattr__('v', year_total_cost.v + (c.consumption * avg_p)) %}
+              {% set year_total_cost.v = year_total_cost.v + (c.consumption * avg_p) %}
             {% endif %}
           {% endif %}
           <td class="text-center {% if not c.has_inventory %}text-muted{% endif %}">
@@ -247,9 +247,9 @@
           {% for mid, entry in data.items() %}
             {% set c = entry.months[m] %}
             {% if c.has_inventory %}
-              {% set _ = month_kg.__setattr__('v', month_kg.v + (c.weight_kg or 0)) %}
-              {% set _ = month_pcs.__setattr__('v', month_pcs.v + (c.consumption or 0)) %}
-              {% set _ = grand_total_kg.__setattr__('v', grand_total_kg.v + (c.weight_kg or 0)) %}
+              {% set month_kg.v = month_kg.v + (c.weight_kg or 0) %}
+              {% set month_pcs.v = month_pcs.v + (c.consumption or 0) %}
+              {% set grand_total_kg.v = grand_total_kg.v + (c.weight_kg or 0) %}
             {% endif %}
           {% endfor %}
           <td class="text-center">

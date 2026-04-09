@@ -63,8 +63,8 @@
         {% set m = entry.material %}
         {% if m.ekokom_material and entry.total_pcs != 0 %}
         {% set cz_t = entry.total_t * cz_pct / 100 %}
-        {% set _ = grand_total_kg.__setattr__('v', grand_total_kg.v + entry.total_kg) %}
-        {% set _ = grand_cz_t.__setattr__('v', grand_cz_t.v + cz_t) %}
+        {% set grand_total_kg.v = grand_total_kg.v + entry.total_kg %}
+        {% set grand_cz_t.v = grand_cz_t.v + cz_t %}
         <tr>
           <td class="fw-semibold">{{ m.name }}</td>
           <td>

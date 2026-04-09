@@ -86,11 +86,11 @@
             <td colspan="5" class="fw-semibold py-1 small">{{ group_name }}</td>
           </tr>
           {% for mat_code, wt in group_rows %}
-          {% set _ = ns_total.__setattr__('t', ns_total.t + wt) %}
+          {% set ns_total.t = ns_total.t + wt %}
           {% set total_kg_all = namespace(v=0) %}
           {% for mid, entry in consumption.items() %}
             {% if entry.material.naturpack_material == mat_code and entry.material.naturpack_appendix == appendix %}
-              {% set _ = total_kg_all.__setattr__('v', total_kg_all.v + entry.total_kg) %}
+              {% set total_kg_all.v = total_kg_all.v + entry.total_kg %}
             {% endif %}
           {% endfor %}
           <tr>
@@ -107,7 +107,7 @@
         {% set total_kg_all2 = namespace(v=0) %}
         {% for mid, entry in consumption.items() %}
           {% if entry.material.naturpack_appendix == appendix %}
-            {% set _ = total_kg_all2.__setattr__('v', total_kg_all2.v + entry.total_kg) %}
+            {% set total_kg_all2.v = total_kg_all2.v + entry.total_kg %}
           {% endif %}
         {% endfor %}
         <tr class="table-light fw-semibold">
