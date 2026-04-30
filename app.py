@@ -41,24 +41,6 @@ def ping():
     return "pong", 200
 
 
-@app.route("/debug/stock")
-def debug_stock():
-    """Temporary: show raw stock data for diagnosing dashboard alerts."""
-    from datetime import date
-    import json
-    today = date.today()
-    year, month = today.year, today.month
-    mats = {m["id"]: m["name"] for m in db.get_materials(active_only=False)}
-    inv = db.get_inventory_for_year(year)
-    receipts = db.get_receipts_totals_for_year(year)
-    prev_inv = db.get_inventory_for_year(year - 1)
-    rows = []
-    for mid, name in sorted(mats.items(), key=lambda x: x[1]):
-        inv_entries = {mo: inv.get((mid, mo)) for mo in range(1, month + 1) if inv.get((mid, mo)) is not None}
-        rec_entries = {mo: receipts.get((mid, mo)) for mo in range(1, month + 1) if receipts.get((mid, mo))}
-        prev_dec = prev_inv.get((mid, 12))
-        rows.append({"id": mid, "name": name, "inv_2026": inv_entries, "receipts_2026": rec_entries, "prev_dec": prev_dec})
-    return "<pre>" + json.dumps(rows, indent=2, ensure_ascii=False) + "</pre>"
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
