@@ -455,15 +455,21 @@ def get_low_stock_alerts():
     for m in materials:
         mid = m["id"]
 
-        # Most recent closing stock
+        # Most recent closing stock + receipts received after that inventory count
         current_stock = None
+        last_inv_month = 0  # 0 means we fell back to prev year / initial_stock
         for mo in range(month, 0, -1):
             v = inv.get((mid, mo))
             if v is not None:
                 current_stock = v
+                last_inv_month = mo
                 break
         if current_stock is None:
             current_stock = prev_inv.get((mid, 12)) or m.get("initial_stock") or 0
+
+        # Add receipts from months not yet covered by an inventory count
+        for mo in range(last_inv_month + 1, month + 1):
+            current_stock += receipts.get((mid, mo), 0)
 
         # Avg monthly consumption from last ≤3 months with data
         consumptions = []
