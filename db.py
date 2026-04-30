@@ -84,9 +84,6 @@ def init_db():
             )
         """)
         cur.execute("""
-            ALTER TABLE pt_inventory ADD COLUMN IF NOT EXISTS inventory_date DATE
-        """)
-        cur.execute("""
             CREATE TABLE IF NOT EXISTS pt_country_distribution (
                 id SERIAL PRIMARY KEY,
                 year INTEGER NOT NULL,
