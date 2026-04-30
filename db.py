@@ -431,6 +431,33 @@ def get_receipts_totals_for_year(year):
         return {(r[0], r[1]): int(r[2]) for r in cur.fetchall()}
 
 
+def get_post_inventory_receipts(year, month):
+    """
+    For each material, returns total pcs received AFTER its last inventory entry
+    (using entered_at as proxy for the physical count date).
+    Only considers inventories up to the given year/month.
+    Returns {material_id: total_pcs}.
+    """
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            WITH last_inv AS (
+                SELECT DISTINCT ON (material_id)
+                    material_id,
+                    entered_at::date AS inv_date
+                FROM pt_inventory
+                WHERE year < %s OR (year = %s AND month <= %s)
+                ORDER BY material_id, year DESC, month DESC, entered_at DESC
+            )
+            SELECT r.material_id, COALESCE(SUM(r.quantity_pcs), 0)
+            FROM pt_receipts r
+            JOIN last_inv li ON r.material_id = li.material_id
+            WHERE r.receipt_date > li.inv_date
+            GROUP BY r.material_id
+        """, (year, year, month))
+        return {r[0]: int(r[1]) for r in cur.fetchall()}
+
+
 def get_inventory_bulk(year, month):
     """Bulk fetch for a single month: {material_id: closing_stock_pcs}."""
     with get_conn() as conn:

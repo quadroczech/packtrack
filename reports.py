@@ -444,32 +444,29 @@ def get_low_stock_alerts():
     today = date.today()
     year, month = today.year, today.month
 
-    materials     = db.get_materials(active_only=True)
-    inv           = db.get_inventory_for_year(year)
-    receipts      = db.get_receipts_totals_for_year(year)
-    prev_inv      = db.get_inventory_for_year(year - 1)
-    prev_receipts = db.get_receipts_totals_for_year(year - 1)
-    prev2_inv     = db.get_inventory_for_year(year - 2)
+    materials          = db.get_materials(active_only=True)
+    inv                = db.get_inventory_for_year(year)
+    receipts           = db.get_receipts_totals_for_year(year)
+    prev_inv           = db.get_inventory_for_year(year - 1)
+    prev_receipts      = db.get_receipts_totals_for_year(year - 1)
+    prev2_inv          = db.get_inventory_for_year(year - 2)
+    post_inv_receipts  = db.get_post_inventory_receipts(year, month)
 
     alerts = []
     for m in materials:
         mid = m["id"]
 
-        # Most recent closing stock + receipts received after that inventory count
+        # Most recent closing stock from inventory + receipts received after that count
         current_stock = None
-        last_inv_month = 0  # 0 means we fell back to prev year / initial_stock
         for mo in range(month, 0, -1):
             v = inv.get((mid, mo))
             if v is not None:
                 current_stock = v
-                last_inv_month = mo
                 break
         if current_stock is None:
             current_stock = prev_inv.get((mid, 12)) or m.get("initial_stock") or 0
 
-        # Add receipts from months not yet covered by an inventory count
-        for mo in range(last_inv_month + 1, month + 1):
-            current_stock += receipts.get((mid, mo), 0)
+        current_stock += post_inv_receipts.get(mid, 0)
 
         # Avg monthly consumption from last ≤3 months with data
         consumptions = []
