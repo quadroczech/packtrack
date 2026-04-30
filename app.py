@@ -232,12 +232,14 @@ def inventory_entry(year, month):
     mats = db.get_materials(active_only=True)
 
     if request.method == "POST":
+        inv_date_str = request.form.get("inventory_date", "").strip()
+        inv_date = inv_date_str if inv_date_str else None
         for m in mats:
             closing_str = request.form.get(f"closing_{m['id']}")
             if closing_str is not None and closing_str.strip() != "":
                 closing = int(closing_str)
                 notes = request.form.get(f"notes_{m['id']}", "").strip()
-                db.upsert_inventory(m["id"], year, month, closing, notes)
+                db.upsert_inventory(m["id"], year, month, closing, notes, inv_date)
         flash(f"Inventura za {MONTHS_CZ[month]} {year} byla uložena.", "success")
         return redirect(url_for("inventory_list", year=year))
 
@@ -260,10 +262,17 @@ def inventory_entry(year, month):
             "notes_val": inv_row["notes"] if inv_row else "",
         })
 
+    existing_date = next(
+        (r["inventory_date"] for r in inv_month_full if r.get("inventory_date")),
+        None
+    )
+    inventory_date_val = existing_date.isoformat() if existing_date else date.today().isoformat()
+
     return render_template("inventory_entry.html",
                            year=year, month=month,
                            month_name=MONTHS_CZ[month],
-                           rows=rows)
+                           rows=rows,
+                           inventory_date_val=inventory_date_val)
 
 
 # ── History ───────────────────────────────────────────────────────────────────

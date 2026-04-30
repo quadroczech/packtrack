@@ -78,9 +78,13 @@ def init_db():
                 month INTEGER NOT NULL,
                 closing_stock_pcs INTEGER NOT NULL,
                 notes TEXT,
+                inventory_date DATE,
                 entered_at TIMESTAMP DEFAULT NOW(),
                 UNIQUE(material_id, year, month)
             )
+        """)
+        cur.execute("""
+            ALTER TABLE pt_inventory ADD COLUMN IF NOT EXISTS inventory_date DATE
         """)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS pt_country_distribution (
@@ -359,17 +363,18 @@ def get_previous_closing(material_id, year, month):
         return row[0] if row else None
 
 
-def upsert_inventory(material_id, year, month, closing_stock, notes=""):
+def upsert_inventory(material_id, year, month, closing_stock, notes="", inventory_date=None):
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO pt_inventory (material_id, year, month, closing_stock_pcs, notes, entered_at)
-            VALUES (%s, %s, %s, %s, %s, NOW())
+            INSERT INTO pt_inventory (material_id, year, month, closing_stock_pcs, notes, inventory_date, entered_at)
+            VALUES (%s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (material_id, year, month)
             DO UPDATE SET closing_stock_pcs = EXCLUDED.closing_stock_pcs,
                           notes = EXCLUDED.notes,
+                          inventory_date = EXCLUDED.inventory_date,
                           entered_at = NOW()
-        """, (material_id, year, month, closing_stock, notes))
+        """, (material_id, year, month, closing_stock, notes, inventory_date))
 
 
 def get_avg_prices_all():
@@ -429,6 +434,33 @@ def get_receipts_totals_for_year(year):
             GROUP BY material_id, EXTRACT(MONTH FROM receipt_date)
         """, (year,))
         return {(r[0], r[1]): int(r[2]) for r in cur.fetchall()}
+
+
+def get_post_inventory_receipts(year, month):
+    """
+    For each material, returns total pcs received AFTER its last inventory entry
+    (using entered_at as proxy for the physical count date).
+    Only considers inventories up to the given year/month.
+    Returns {material_id: total_pcs}.
+    """
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            WITH last_inv AS (
+                SELECT DISTINCT ON (material_id)
+                    material_id,
+                    COALESCE(inventory_date, make_date(year, month, 1) - 1) AS inv_date
+                FROM pt_inventory
+                WHERE year < %s OR (year = %s AND month <= %s)
+                ORDER BY material_id, year DESC, month DESC, entered_at DESC
+            )
+            SELECT r.material_id, COALESCE(SUM(r.quantity_pcs), 0)
+            FROM pt_receipts r
+            JOIN last_inv li ON r.material_id = li.material_id
+            WHERE r.receipt_date > li.inv_date
+            GROUP BY r.material_id
+        """, (year, year, month))
+        return {r[0]: int(r[1]) for r in cur.fetchall()}
 
 
 def get_inventory_bulk(year, month):

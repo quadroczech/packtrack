@@ -444,18 +444,19 @@ def get_low_stock_alerts():
     today = date.today()
     year, month = today.year, today.month
 
-    materials     = db.get_materials(active_only=True)
-    inv           = db.get_inventory_for_year(year)
-    receipts      = db.get_receipts_totals_for_year(year)
-    prev_inv      = db.get_inventory_for_year(year - 1)
-    prev_receipts = db.get_receipts_totals_for_year(year - 1)
-    prev2_inv     = db.get_inventory_for_year(year - 2)
+    materials          = db.get_materials(active_only=True)
+    inv                = db.get_inventory_for_year(year)
+    receipts           = db.get_receipts_totals_for_year(year)
+    prev_inv           = db.get_inventory_for_year(year - 1)
+    prev_receipts      = db.get_receipts_totals_for_year(year - 1)
+    prev2_inv          = db.get_inventory_for_year(year - 2)
+    post_inv_receipts  = db.get_post_inventory_receipts(year, month)
 
     alerts = []
     for m in materials:
         mid = m["id"]
 
-        # Most recent closing stock
+        # Most recent closing stock from inventory + receipts received after that count
         current_stock = None
         for mo in range(month, 0, -1):
             v = inv.get((mid, mo))
@@ -464,6 +465,8 @@ def get_low_stock_alerts():
                 break
         if current_stock is None:
             current_stock = prev_inv.get((mid, 12)) or m.get("initial_stock") or 0
+
+        current_stock += post_inv_receipts.get(mid, 0)
 
         # Avg monthly consumption from last ≤3 months with data
         consumptions = []
