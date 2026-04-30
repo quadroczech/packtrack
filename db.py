@@ -449,7 +449,7 @@ def get_post_inventory_receipts(year, month):
             WITH last_inv AS (
                 SELECT DISTINCT ON (material_id)
                     material_id,
-                    COALESCE(inventory_date, make_date(year, month, 1) - 1) AS inv_date
+                    make_date(year, month, 1) - 1 AS inv_date
                 FROM pt_inventory
                 WHERE year < %s OR (year = %s AND month <= %s)
                 ORDER BY material_id, year DESC, month DESC, entered_at DESC
