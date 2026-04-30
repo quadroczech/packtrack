@@ -450,23 +450,35 @@ def get_low_stock_alerts():
     prev_inv           = db.get_inventory_for_year(year - 1)
     prev_receipts      = db.get_receipts_totals_for_year(year - 1)
     prev2_inv          = db.get_inventory_for_year(year - 2)
-    post_inv_receipts  = db.get_post_inventory_receipts(year, month)
 
     alerts = []
     for m in materials:
         mid = m["id"]
 
-        # Most recent closing stock from inventory + receipts received after that count
+        # Find most recent inventory and compute current stock
         current_stock = None
+        last_inv_month = None
         for mo in range(month, 0, -1):
             v = inv.get((mid, mo))
             if v is not None:
                 current_stock = v
+                last_inv_month = mo
                 break
-        if current_stock is None:
-            current_stock = prev_inv.get((mid, 12)) or m.get("initial_stock") or 0
 
-        current_stock += post_inv_receipts.get(mid, 0)
+        if current_stock is None:
+            prev_dec = prev_inv.get((mid, 12))
+            current_stock = prev_dec if prev_dec is not None else (m.get("initial_stock") or 0)
+
+        # Add receipts that arrived after the last inventory count.
+        # If inventory is from month M this year: add receipts for months M..current
+        # (inventory was done before same-month receipts arrived, or no inv this year).
+        # If no inventory this year: add all this year's receipts.
+        if last_inv_month is not None:
+            for mo in range(last_inv_month, month + 1):
+                current_stock += receipts.get((mid, mo), 0)
+        else:
+            for mo in range(1, month + 1):
+                current_stock += receipts.get((mid, mo), 0)
 
         # Avg monthly consumption from last ≤3 months with data
         consumptions = []
