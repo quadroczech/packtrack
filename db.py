@@ -134,6 +134,10 @@ def init_db():
             ALTER TABLE pt_materials
             ADD COLUMN IF NOT EXISTS price_per_unit NUMERIC(10,4) DEFAULT NULL
         """)
+        cur.execute("""
+            ALTER TABLE pt_materials
+            ADD COLUMN IF NOT EXISTS catalog_number VARCHAR(100) DEFAULT NULL
+        """)
 
 
 # ── Settings ─────────────────────────────────────────────────────────────────
@@ -203,13 +207,13 @@ def create_material(data: dict):
                  ekokom_sheet, ekokom_material, ekokom_form, ekokom_origin,
                  naturpack_material, naturpack_appendix,
                  notes, initial_stock, include_in_reports, material_type, report_country,
-                 price_per_unit)
+                 price_per_unit, catalog_number)
             VALUES
                 (%(name)s, %(description)s, %(weight_g)s, %(supplier)s,
                  %(ekokom_sheet)s, %(ekokom_material)s, %(ekokom_form)s, %(ekokom_origin)s,
                  %(naturpack_material)s, %(naturpack_appendix)s,
                  %(notes)s, %(initial_stock)s, %(include_in_reports)s, %(material_type)s,
-                 %(report_country)s, %(price_per_unit)s)
+                 %(report_country)s, %(price_per_unit)s, %(catalog_number)s)
             RETURNING id
         """, data)
         return cur.fetchone()[0]
@@ -230,7 +234,8 @@ def update_material(material_id, data: dict):
                 include_in_reports=%(include_in_reports)s,
                 material_type=%(material_type)s,
                 report_country=%(report_country)s,
-                price_per_unit=%(price_per_unit)s
+                price_per_unit=%(price_per_unit)s,
+                catalog_number=%(catalog_number)s
             WHERE id=%(id)s
         """, {**data, "id": material_id})
 
@@ -483,6 +488,51 @@ def get_receipts_bulk(year, month):
             GROUP BY material_id
         """, (year, month))
         return {r[0]: int(r[1]) for r in cur.fetchall()}
+
+
+def get_consumption_for_csv(year, month):
+    """Return list of (catalog_number, consumed_pcs) for materials that have
+    a catalog number and non-zero consumption in the given month.
+    Consumption = opening + incoming - closing."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        # Previous month for opening stock
+        if month == 1:
+            prev_year, prev_month = year - 1, 12
+        else:
+            prev_year, prev_month = year, month - 1
+
+        cur.execute("""
+            WITH current_inv AS (
+                SELECT material_id, closing_stock_pcs
+                FROM pt_inventory
+                WHERE year = %s AND month = %s
+            ),
+            prev_inv AS (
+                SELECT material_id, closing_stock_pcs
+                FROM pt_inventory
+                WHERE year = %s AND month = %s
+            ),
+            receipts AS (
+                SELECT material_id, COALESCE(SUM(quantity_pcs), 0) AS total_pcs
+                FROM pt_receipts
+                WHERE EXTRACT(YEAR FROM receipt_date) = %s
+                  AND EXTRACT(MONTH FROM receipt_date) = %s
+                GROUP BY material_id
+            )
+            SELECT
+                m.catalog_number,
+                COALESCE(p.closing_stock_pcs, m.initial_stock, 0)
+                    + COALESCE(r.total_pcs, 0)
+                    - c.closing_stock_pcs AS consumed
+            FROM current_inv c
+            JOIN pt_materials m ON m.id = c.material_id
+            LEFT JOIN prev_inv p ON p.material_id = c.material_id
+            LEFT JOIN receipts r ON r.material_id = c.material_id
+            WHERE m.catalog_number IS NOT NULL AND m.catalog_number <> ''
+            ORDER BY m.catalog_number
+        """, (year, month, prev_year, prev_month, year, month))
+        return [(row[0], int(row[1])) for row in cur.fetchall() if row[1] > 0]
 
 
 def get_months_with_inventory(year):
