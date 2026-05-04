@@ -1,6 +1,8 @@
 """PackTrack – Flask application."""
 import os
 from datetime import date, datetime
+import csv
+import io
 from flask import (Flask, render_template, request, redirect, url_for,
                    flash, send_file, jsonify)
 
@@ -161,6 +163,7 @@ def _material_from_form():
         "material_type":      f.get("material_type", "packaging"),
         "report_country":     f.get("report_country", "") or None,
         "price_per_unit":     float(f["price_per_unit"]) if f.get("price_per_unit") else None,
+        "catalog_number":     f.get("catalog_number", "").strip() or None,
     }
 
 
@@ -275,6 +278,20 @@ def inventory_entry(year, month):
                            month_name=MONTHS_CZ[month],
                            rows=rows,
                            inventory_date_val=inventory_date_val)
+
+
+@app.route("/inventory/<int:year>/<int:month>/export.csv")
+def inventory_csv_export(year, month):
+    rows = db.get_consumption_for_csv(year, month)
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["SKU", "QTY"])
+    writer.writerows(rows)
+    output = io.BytesIO(buf.getvalue().encode("utf-8"))
+    filename = f"inventory_{year}_{month:02d}.csv"
+    return send_file(output, as_attachment=True,
+                     download_name=filename,
+                     mimetype="text/csv")
 
 
 # ── History ───────────────────────────────────────────────────────────────────

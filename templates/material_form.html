@@ -19,6 +19,13 @@
                  value="{{ material.name if material else '' }}" required
                  placeholder="např. PE sáček průhledný 300x400mm">
         </div>
+        <div class="col-sm-4">
+          <label class="form-label fw-semibold">Katalogové číslo (SKU)</label>
+          <input type="text" name="catalog_number" class="form-control"
+                 value="{{ material.catalog_number if material and material.catalog_number else '' }}"
+                 placeholder="např. 13-02010-35">
+          <div class="form-text">Používá se pro CSV export spotřeby z inventury.</div>
+        </div>
         <div class="col-12">
           <label class="form-label">Popis</label>
           <input type="text" name="description" class="form-control"
